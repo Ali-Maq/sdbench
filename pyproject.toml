@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sdbench"
+version = "0.1.0"
+description = "Sequential Diagnosis Benchmark (SDBench): a harness for evaluating diagnostic AI agents on clinical cases."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Microsoft Corporation" }]
+keywords = ["sdbench", "benchmark", "clinical", "diagnosis", "llm", "agents", "evaluation"]
+
+dependencies = [
+    "openai>=1.14.0",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.0",
+    "tqdm>=4.66.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+# CPT-code grounded costing (`--costing-method unified_cpt_llm`): fuzzy + vector
+# matching of test names against a hospital charge master.
+cpt_costing = [
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.0",
+    "faiss-cpu>=1.7.0",
+    "fuzzywuzzy>=0.18.0",
+    "python-Levenshtein>=0.21.0",
+]
+# Azure integrations: Blob Storage result upload (`--azure-storage-enabled`) and the
+# CosmosDB-backed costing cache (both imported lazily; only needed when enabled).
+azure = [
+    "azure-identity>=1.15.0",
+    "azure-storage-blob>=12.19.0",
+    "azure-cosmos>=4.5.1",
+]
+# All optional features.
+all = ["sdbench[cpt_costing,azure]"]
+
+[project.urls]
+Homepage = "https://microsoft.github.io/sdbench"
+Repository = "https://github.com/microsoft/sdbench"
+"Paper" = "https://www.science.org/doi/10.1126/science.aeh7930"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sdbench"]
+
+# Ship the synthetic demo dataset inside the package so `pip install sdbench` works
+# out-of-the-box (case_data falls back to this when no local ./data is present).
+[tool.hatch.build.targets.wheel.force-include]
+"data/processed_case_data/synthetic" = "sdbench/_bundled_data/processed_case_data/synthetic"

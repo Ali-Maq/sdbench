@@ -1,0 +1,118 @@
+/* SDBench project page — academic landing-page styling on top of Bulma. */
+
+:root {
+  --sd-primary: #1f3a5f;     /* deep slate blue */
+  --sd-accent:  #2b7a9b;     /* teal accent */
+  --sd-human:   #c2410c;     /* burnt orange for human baselines */
+  --sd-bg-soft: #f5f7fa;
+  --sd-border:  #e2e8f0;
+}
+
+html { scroll-behavior: smooth; scroll-padding-top: 4rem; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  color: #1a202c;
+}
+
+/* ---- Hero ---------------------------------------------------------------- */
+.sd-hero {
+  background: linear-gradient(160deg, #f8fafc 0%, #eef3f8 100%);
+  border-bottom: 1px solid var(--sd-border);
+  padding: 3.5rem 1rem 2.75rem;
+  text-align: center;
+}
+.sd-hero .title {
+  color: var(--sd-primary);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.sd-hero .subtitle { color: #475569; margin-top: 0.75rem; }
+.sd-authors { margin: 1.25rem 0 0.25rem; color: #334155; font-size: 1.05rem; }
+.sd-affil { color: #64748b; font-size: 0.95rem; }
+
+/* ---- Publication link buttons ------------------------------------------- */
+.sd-links { margin-top: 1.75rem; display: flex; gap: 0.6rem; flex-wrap: wrap;
+  justify-content: center; }
+.sd-links .button {
+  background: var(--sd-primary);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+.sd-links .button:hover { background: #16293f; color: #fff; }
+.sd-links .button .icon { margin-right: 0.35rem; }
+
+/* ---- Sections ------------------------------------------------------------ */
+.sd-section { padding: 3rem 1rem; max-width: 980px; margin: 0 auto; }
+.sd-section h2.title {
+  color: var(--sd-primary);
+  border-bottom: 3px solid var(--sd-accent);
+  display: inline-block;
+  padding-bottom: 0.25rem;
+  margin-bottom: 1.5rem;
+}
+.sd-section--soft { background: var(--sd-bg-soft); max-width: none; }
+.sd-section--soft > .sd-inner { max-width: calc(980px - 2rem); margin: 0 auto; }
+
+/* ---- Overview / paper cover --------------------------------------------- */
+.sd-overview {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 3rem; align-items: start;
+}
+.sd-overview .content { margin-bottom: 0; }
+.sd-paper-cover { margin: 0; width: 100%; max-width: 300px; }
+.sd-paper-cover a { display: block; }
+.sd-paper-cover img {
+  display: block; width: 100%; height: auto; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(31,58,95,0.15);
+}
+@media (max-width: 768px) {
+  .sd-overview { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  .sd-overview .content { font-size: 1rem; }
+  .sd-paper-cover { justify-self: center; }
+}
+
+.sd-figure { text-align: center; margin: 1.5rem 0; }
+.sd-figure img { max-width: 100%; border: 1px solid var(--sd-border);
+  border-radius: 8px; }
+.sd-figure figcaption { color: #64748b; font-size: 0.9rem; margin-top: 0.6rem; }
+
+/* ---- Role / dataset cards ------------------------------------------------ */
+.sd-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+@media (max-width: 768px) { .sd-cards { grid-template-columns: 1fr; } }
+.sd-card {
+  background: #fff; border: 1px solid var(--sd-border); border-radius: 10px;
+  padding: 1.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.sd-card h3 { color: var(--sd-accent); font-weight: 700; margin-bottom: 0.5rem; }
+.sd-org { color: #64748b; font-size: 0.85rem; }
+.sd-card-links { margin-top: 0.9rem; display: flex; gap: 0.5rem; }
+.sd-card-links a {
+  font-size: 0.8rem; font-weight: 600; color: var(--sd-accent);
+  border: 1px solid var(--sd-accent); border-radius: 999px;
+  padding: 0.15rem 0.7rem; text-decoration: none;
+}
+.sd-card-links a:hover { background: var(--sd-accent); color: #fff; }
+.sd-card--soon { opacity: 0.7; border-style: dashed; }
+.sd-tag-soon {
+  display: inline-block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--sd-human); border: 1px solid var(--sd-human);
+  border-radius: 4px; padding: 0.1rem 0.4rem; margin-left: 0.5rem;
+}
+
+/* ---- Code / citation ----------------------------------------------------- */
+pre.sd-code {
+  background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 1rem 1.25rem;
+  overflow-x: auto; font-size: 0.85rem; line-height: 1.5;
+}
+.sd-bibtex { background: #f1f5f9; border: 1px solid var(--sd-border);
+  border-radius: 8px; padding: 1rem 1.25rem; font-size: 0.82rem; overflow-x: auto; }
+
+footer.sd-footer { background: var(--sd-primary); color: #cbd5e1; text-align: center;
+  padding: 2rem 1rem; font-size: 0.85rem; }
+footer.sd-footer a { color: #93c5fd; }

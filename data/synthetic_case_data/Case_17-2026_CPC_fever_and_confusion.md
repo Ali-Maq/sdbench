@@ -1,0 +1,188 @@
+# Case 17-2026: A 58-Year-Old Woman with Recurrent Fever, Progressive Confusion, and Multifocal Cerebral Infarction
+
+*Case Records of the Wexford General Hospital — A Clinicopathological Exercise*
+
+*The following is an entirely fictional teaching case. All names, dates, case numbers, institutions, laboratory values, and narrative details are invented for instructional purposes and do not depict any real patient, physician, or institution.*
+
+---
+
+## Presentation of the Case
+
+**Dr. Naomi Carter (Medicine):** A 58-year-old woman was admitted to this hospital because of six weeks of recurrent fever and three weeks of progressive confusion.
+
+The patient had been in her usual state of health until approximately six weeks before admission, when she began to have intermittent fevers, with temperatures she measured at home as high as 38.9°C. The fevers occurred most often in the late afternoon and evening and were accompanied by drenching night sweats that obliged her to change her bedclothes. During the same interval she noted profound fatigue, anorexia, and an unintentional weight loss that she estimated at 6 kg. She did not have rigors, productive cough, dysuria, diarrhea, abdominal pain, or localized pain.
+
+Three weeks before admission, her husband noticed that she had become forgetful and intermittently inattentive. She repeated questions, misplaced household objects, and on two occasions became transiently disoriented as to the day and her location. One week before admission, she had an episode of word-finding difficulty and clumsiness of the right hand that lasted approximately 30 minutes and resolved spontaneously; she did not seek care at the time. Her gait had become subtly unsteady, and she had stopped driving at the urging of her family. There had been no headache until the few days before admission, when she reported mild, diffuse, non-positional headache. There was no neck stiffness, photophobia, seizure activity, visual loss, or incontinence.
+
+Four weeks before admission, she had been seen by her primary care physician, who documented a temperature of 38.4°C and an unremarkable examination and prescribed a course of amoxicillin–clavulanate for presumed sinusitis. Two weeks before admission, a recurrence of fever prompted empirical treatment for a urinary tract infection with nitrofurantoin, although a urinalysis was reportedly unremarkable. Neither course of antibiotics produced improvement. On the day of admission, her family brought her to the emergency department of this hospital after she was found in the morning to be confused and unable to recall recent conversations.
+
+Her medical history included hypertension, primary hypothyroidism, and hyperlipidemia. She had undergone an uncomplicated laparoscopic cholecystectomy nine years earlier. There was no history of diabetes mellitus, atrial fibrillation, venous thromboembolism, recurrent miscarriage, recent vascular instrumentation, or known autoimmune disease. Her medications were lisinopril, levothyroxine, and atorvastatin; she had recently completed the two antibiotic courses described above. She reported a rash with trimethoprim–sulfamethoxazole in the past; there were no other known drug allergies. Her immunizations were current, including seasonal influenza, the primary and booster coronavirus vaccinations, and the recommended pneumococcal series; she had not received any travel-related vaccinations and had not had a tuberculin skin test.
+
+The patient was a retired schoolteacher who lived with her husband in a rural town in the northeastern United States. She had never smoked, drank one or two glasses of wine per month, and had never used illicit drugs. She had been in a monogamous relationship with her husband for more than three decades. The couple kept an indoor cat that was healthy. She gardened but reported no recent tick bites, no recent travel outside the region, no consumption of unpasteurized dairy products, no exposure to farm animals or rodents, and no known contact with persons with tuberculosis. There was no occupational exposure to dust, solvents, or asbestos.
+
+Her family history was notable for an ischemic stroke in her mother at 74 years of age, myocardial infarction in her father, and breast carcinoma in a sister. There was no family history of hematologic malignancy, bleeding or clotting disorders, or early-onset dementia.
+
+On review of systems, she described diffuse arthralgias and myalgias without frank joint swelling. She denied epistaxis, hemoptysis, hematochezia, mucosal ulcers, sicca symptoms, Raynaud phenomenon, alopecia, photosensitive rash, dyspnea, orthopnea, or palpitations. She had not noticed any new skin lesions, although she acknowledged she had not been examining herself carefully.
+
+On examination, the temperature was 38.6°C, the heart rate 104 beats per minute, the blood pressure 138/82 mm Hg, the respiratory rate 18 breaths per minute, and the oxygen saturation 96% while she was breathing ambient air. She appeared chronically ill and thin. There was no scleral icterus or conjunctival pallor. The oropharynx was moist and without thrush, ulceration, or exudate. There was no cervical, axillary, supraclavicular, or inguinal lymphadenopathy. The jugular venous pressure was normal. Cardiac auscultation revealed a regular tachycardia without murmurs, rubs, or gallops. The lungs were clear. The abdomen was soft and nontender; the spleen tip was just palpable below the left costal margin on deep inspiration, and the liver was not enlarged. Examination of the skin revealed faint, irregular, reddish-violaceous mottling over the thighs and the proximal arms that did not fully resolve with warming, more consistent with pathologic livedo (livedo racemosa-like mottling) than physiologic cutis marmorata, together with several small, telangiectatic erythematous patches on the trunk. There was no palpable purpura, no digital infarction, and no splinter hemorrhage.
+
+On neurologic examination, she was awake but inattentive and was disoriented to the date. She had difficulty with serial subtraction and with three-item recall at five minutes. Speech was fluent but occasionally interrupted by word-finding pauses, and there was mild dysarthria. Cranial-nerve examination was normal, including funduscopy, which revealed no papilledema, Roth spots, or emboli. There was a subtle right pronator drift; strength was otherwise full. Deep-tendon reflexes were symmetrically brisk, and the plantar responses were flexor. Sensation was intact. The gait was cautious and mildly wide-based, and tandem gait was impaired. There was no neck stiffness, and Kernig and Brudzinski signs were absent.
+
+Laboratory studies obtained on admission are shown in **Table 1** and **Table 2**.
+
+**Table 1. Hematologic and Coagulation Studies.**
+
+| Variable | Patient's Value | Reference Range |
+|---|---|---|
+| Hemoglobin (g/dL) | 9.4 | 12.0–16.0 |
+| Hematocrit (%) | 28.5 | 36.0–46.0 |
+| Mean corpuscular volume (fL) | 89 | 80–100 |
+| White-cell count (×10⁹/L) | 3.6 | 4.5–11.0 |
+| Neutrophils (%) | 68 | 40–70 |
+| Lymphocytes (%) | 19 | 22–44 |
+| Platelet count (×10⁹/L) | 96 | 150–400 |
+| Reticulocyte count (%) | 1.0 | 0.5–2.5 |
+| Peripheral smear | Normochromic, normocytic anemia; no schistocytes; occasional teardrop forms; no blasts | — |
+| Prothrombin time (s) | 13.1 | 11.5–14.5 |
+| Activated partial-thromboplastin time (s) | 31 | 25–35 |
+| Fibrinogen (mg/dL) | 360 | 200–400 |
+| D-dimer (µg/mL FEU) | 2.9 | <0.50 |
+
+**Table 2. Clinical Chemistry, Inflammatory, and Specialized Studies.**
+
+| Variable | Patient's Value | Reference Range |
+|---|---|---|
+| Sodium (mmol/L) | 137 | 135–145 |
+| Potassium (mmol/L) | 4.1 | 3.5–5.0 |
+| Creatinine (mg/dL) | 1.0 | 0.6–1.1 |
+| Urea nitrogen (mg/dL) | 18 | 7–20 |
+| Aspartate aminotransferase (U/L) | 76 | 10–40 |
+| Alanine aminotransferase (U/L) | 52 | 7–35 |
+| Alkaline phosphatase (U/L) | 168 | 35–105 |
+| Total bilirubin (mg/dL) | 1.1 | 0.1–1.0 |
+| Albumin (g/dL) | 3.0 | 3.5–5.0 |
+| Lactate dehydrogenase (U/L) | 842 | 110–210 |
+| Haptoglobin (mg/dL) | 15 | 30–200 |
+| Direct antiglobulin (Coombs) test | Negative | Negative |
+| Ferritin (ng/mL) | 3,150 | 11–307 |
+| Triglycerides (mg/dL) | 295 | <150 |
+| Uric acid (mg/dL) | 7.8 | 2.4–6.0 |
+| Erythrocyte sedimentation rate (mm/hr) | 88 | 0–20 |
+| C-reactive protein (mg/L) | 96 | <5 |
+| Procalcitonin (ng/mL) | 0.12 | <0.10 |
+| Soluble interleukin-2 receptor (sCD25) (U/mL) | 4,250 | 175–858 |
+| Beta-2-microglobulin (mg/L) | 4.2 | 0.7–1.8 |
+| Thyrotropin (µIU/mL) | 2.3 | 0.4–4.0 |
+| Lactate (mmol/L) | 1.4 | 0.5–2.2 |
+
+The urinalysis showed a specific gravity of 1.015, trace protein, no glucose, no leukocyte esterase or nitrites, and 0–2 red cells and 0–2 white cells per high-power field, without casts. Three sets of blood cultures obtained over 48 hours showed no growth. Testing for human immunodeficiency virus (HIV) antigen and antibody was negative; hepatitis B surface antigen, hepatitis B core antibody, and hepatitis C antibody were negative; and a rapid plasma reagin test was nonreactive. Antinuclear antibody, anti–double-stranded DNA antibody, antineutrophil cytoplasmic antibodies (both proteinase-3 and myeloperoxidase specificities), rheumatoid factor, and anti–cyclic citrullinated peptide antibody were all negative or within normal limits. The serum C3 and C4 concentrations were normal. Cryoglobulins were not detected. A lupus anticoagulant assay was negative, and anticardiolipin and anti–β2-glycoprotein I antibodies (IgG and IgM) were within normal limits. Serum and urine protein electrophoresis with immunofixation showed no monoclonal protein. Serologic testing for *Bartonella henselae*, *Coxiella burnetii*, *Brucella* species, and *Borrelia burgdorferi* was negative, as was a tuberculosis interferon-γ release assay.
+
+A diagnostic lumbar puncture was performed. The opening pressure was 17 cm of water. The cerebrospinal fluid (CSF) contained 14 nucleated cells per cubic millimeter (90% lymphocytes) and 2 red cells per cubic millimeter; the protein level was 76 mg/dL (reference range, 15–45) and the glucose level was 64 mg/dL with a simultaneous serum glucose of 102 mg/dL. Gram staining and bacterial cultures were negative, as were polymerase-chain-reaction assays for herpes simplex virus and varicella–zoster virus and a cryptococcal antigen assay. CSF cytologic examination revealed reactive lymphocytes but no malignant cells, and flow cytometry of the CSF identified no clonal lymphoid population.
+
+**Dr. Aaron Feld (Radiology):** Computed tomography (CT) of the chest, abdomen, and pelvis with the administration of intravenous contrast material revealed no mediastinal, hilar, axillary, retroperitoneal, mesenteric, or pelvic lymphadenopathy and no focal mass lesion. The spleen measured 14 cm in the craniocaudal dimension, at the upper limit of or mildly above normal; the liver was normal in size and contour, and there was no ascites.
+
+Magnetic resonance imaging (MRI) of the brain, performed with and without the administration of contrast material, demonstrated multiple small foci of restricted diffusion scattered throughout both cerebral hemispheres, the right cerebellar hemisphere, and the left thalamus. The lesions involved multiple, non-contiguous arterial territories and appeared to be of differing ages, with some showing corresponding signal abnormality on apparent-diffusion-coefficient mapping consistent with subacute infarction and others appearing more recent. There were additional patchy, confluent hyperintensities in the periventricular and subcortical white matter on T2-weighted and fluid-attenuated inversion recovery (FLAIR) sequences. After the administration of contrast material, there was faint, patchy perivascular and leptomeningeal enhancement, but no ring-enhancing lesion, no dominant parenchymal or dural mass, and no evidence of abscess. Magnetic resonance angiography of the intracranial and cervical vessels showed no large-vessel stenosis, occlusion, beading, or aneurysm. Gradient-echo imaging revealed a few scattered microhemorrhages but no large hemorrhage.
+
+**Dr. Naomi Carter (Medicine):** Transthoracic echocardiography showed normal left and right ventricular size and systolic function, no valvular vegetation, no intracardiac mass, and no pericardial effusion; an agitated-saline study revealed no right-to-left shunt. Because of the multifocal infarct pattern, transesophageal echocardiography was subsequently performed and likewise demonstrated no vegetation, no atrial myxoma, no patent foramen ovale, and no aortic atheroma or thrombus.
+
+Whole-body 18F-fluorodeoxyglucose (FDG) positron-emission tomography combined with CT (PET-CT) revealed diffuse, heterogeneously increased FDG uptake throughout the axial bone marrow and the spleen, with a moderately elevated maximum standardized uptake value, but no discrete hypermetabolic nodal or extranodal mass.
+
+A bone marrow aspirate and biopsy were performed. The marrow was hypercellular for the patient's age, with trilineage hematopoiesis and increased numbers of activated macrophages, some of which contained engulfed erythrocytes, nucleated red cells, and platelets, indicative of hemophagocytosis. No overt sheets of malignant cells were identified on the initial aspirate review, and flow cytometry of the aspirate did not reveal a clearly abnormal population.
+
+The patient continued to have daily fevers and fluctuating encephalopathy during the first days of hospitalization. An assay for ADAMTS13 activity, sent because of the anemia and thrombocytopenia, subsequently returned at 68% (reference range, >60%). A diagnostic procedure was performed.
+
+---
+
+## Differential Diagnosis
+
+**Dr. Helena Brandt (Medicine):** The clinical problem may be framed as a subacute, febrile, multisystem illness complicated by progressive encephalopathy and recurrent cerebral ischemia. The breadth of organ involvement is itself an important diagnostic clue.
+
+This previously well 58-year-old woman has a subacute, multisystem illness of roughly six weeks' duration. At least four domains of involvement are present. First, there is a *constitutional and febrile* syndrome — recurrent fevers, drenching night sweats, anorexia, and 6 kg of weight loss — that satisfies a reasonable definition of fever of unknown origin, unresponsive to two empirical antibiotic courses. Second, there is a *neurologic* syndrome: a subacute encephalopathy with inattention, amnesia, and disorientation, punctuated by at least one transient focal deficit, with a subtle pyramidal sign, and — most strikingly — MRI evidence of multiple infarcts in several different arterial territories and of differing ages. Third, there is a *hematologic* derangement: a normocytic anemia and thrombocytopenia, with a markedly elevated lactate dehydrogenase, a low haptoglobin, and a strikingly elevated ferritin. Fourth, there is a *cutaneous* finding — pathologic livedo with telangiectatic patches — that the patient herself had not noticed.
+
+Layered onto these is a notable set of biomarkers: a lactate dehydrogenase of 842 U/L, a ferritin of 3,150 ng/mL, a soluble interleukin-2 receptor of 4,250 U/mL, a β2-microglobulin of 4.2 mg/L, and inflammatory markers that are uniformly elevated. There is mild splenomegaly and diffuse marrow and splenic FDG avidity, but no lymphadenopathy and no tissue mass anywhere on cross-sectional imaging.
+
+The single most discriminating feature is the pattern of brain injury: *multiple infarcts in multiple, non-contiguous vascular territories, of different ages, with normal large vessels on angiography and no cardiac source.* When ischemia is simultaneously bilateral, multi-territorial, and recurrent, but the large arteries are patent and the heart is without an embolic source, the disease usually resides in the small vessels themselves or in something circulating within them. The differential diagnosis may therefore be organized around mechanisms that occlude or inflame small cerebral vessels diffusely while producing a systemic, febrile, marrow-suppressing illness.
+
+### Embolic disease from a cardiac or proximal source
+
+Multifocal, multi-territory infarction is a classic pattern of embolism. *Infective endocarditis*, including culture-negative endocarditis, could in principle explain fever, embolic strokes, splenomegaly, anemia, an elevated sedimentation rate, and even microhemorrhages from septic emboli or mycotic change. The fastidious and culture-negative organisms — *Bartonella*, *Coxiella burnetii*, *Brucella*, *Tropheryma whipplei*, the HACEK organisms, and fungi — are important considerations when blood cultures are sterile. However, three sets of blood cultures were negative, dedicated serologies for *Bartonella*, *Coxiella*, *Brucella*, and *Borrelia* were negative, and, decisively, transesophageal echocardiography showed no vegetation. Endocarditis with strokes and no detectable vegetation on a high-quality transesophageal study is uncommon, and the laboratory profile — the very high LDH and ferritin, the soluble IL-2 receptor — is not explained by it.
+
+*Nonbacterial thrombotic (marantic) endocarditis* deserves separate mention, because it produces multifocal embolic strokes with sterile blood cultures and is classically associated with occult malignancy and with the antiphospholipid syndrome. But again the transesophageal study showed no valvular vegetation or thrombus, which makes a clinically meaningful marantic source unlikely. *Atrial myxoma* can cause systemic emboli, fever, weight loss, anemia, a high sedimentation rate, and elevated inflammatory cytokines, but it was specifically excluded by both echocardiographic studies. *Paradoxical embolism* is excluded by the absence of a right-to-left shunt on the agitated-saline study. *Cholesterol-crystal embolization* can cause livedo and multifocal infarction, but it characteristically follows arterial instrumentation, which this patient has not had, and is typically accompanied by eosinophilia and renal injury, which are absent.
+
+### Thrombotic microangiopathy and hypercoagulable states
+
+The combination of anemia, thrombocytopenia, an elevated LDH, a low haptoglobin, and neurologic dysfunction will make every internist think immediately of *thrombotic thrombocytopenic purpura*. This is an important consideration, and it would unify several findings. But the peripheral smear is the arbiter here: there are no schistocytes. A microangiopathic hemolytic anemia without red-cell fragmentation is essentially a contradiction in terms, and the ADAMTS13 activity returned in the normal range at 68%. The elevated LDH is better explained by tumor burden, tissue ischemia, and inflammatory cell turnover; the low haptoglobin points to modest hemolysis but, in the absence of schistocytes, is not evidence of a true schistocytic microangiopathy. *Disseminated intravascular coagulation* is excluded by the normal prothrombin time, normal activated partial-thromboplastin time, and normal fibrinogen, notwithstanding the elevated D-dimer, which is nonspecific.
+
+The *antiphospholipid syndrome*, particularly in its catastrophic form, can produce pathologic livedo, multifocal cerebral ischemia, thrombocytopenia, and a microangiopathic picture, and it is high on the list whenever livedo accompanies strokes. However, the lupus anticoagulant assay was negative and both anticardiolipin and anti–β2-glycoprotein I antibodies were within normal limits, and there is no history of thrombosis or pregnancy loss. A single negative panel does not absolutely exclude the syndrome, but it makes it an unsatisfying unifying diagnosis, and it would not explain the ferritin of 3,150 ng/mL or the soluble IL-2 receptor.
+
+### Inflammatory and autoimmune vasculitis
+
+A *vasculitis* affecting small cerebral vessels is a leading structural explanation for multifocal infarcts with patent large arteries. *Primary angiitis of the central nervous system* can present as a subacute encephalopathy with multifocal strokes, white-matter change, and leptomeningeal enhancement, and small-vessel forms may have a normal angiogram. Yet primary CNS angiitis is, by definition, confined to the nervous system; it does not cause six weeks of fever, night sweats, weight loss, splenomegaly, a ferritin in the thousands, or a soluble IL-2 receptor of 4,250 U/mL. Those systemic features require consideration of a *systemic* vasculitis or autoimmune disease with CNS involvement — granulomatosis with polyangiitis, microscopic polyangiitis, polyarteritis nodosa, Behçet disease, cryoglobulinemic vasculitis, neuropsychiatric systemic lupus erythematosus, or neurosarcoidosis. But the ANCA testing is negative, the antinuclear and anti–double-stranded DNA antibodies are negative, complement is normal, rheumatoid factor and anti-CCP are negative, cryoglobulins are absent, and there are none of the mucocutaneous, sinopulmonary, renal, or ocular findings that anchor these diagnoses. None of these conditions comfortably accounts for the degree of marrow involvement, the cytopenias, or the biomarker constellation.
+
+### Central-nervous-system and disseminated infection
+
+Chronic infection of the central nervous system must also be considered. Tuberculous and fungal (cryptococcal, histoplasmal) meningoencephalitis can produce subacute encephalopathy, basal meningeal enhancement, infarction from an obliterative vasculitis, and systemic constitutional symptoms. *Whipple disease* deserves particular respect, because *Tropheryma whipplei* can cause a chronic febrile illness with central-nervous-system involvement, cognitive decline, and even culture-negative endocarditis. However, the CSF profile here — a modest lymphocytic pleocytosis with only mildly elevated protein and an entirely normal glucose — argues against typical tuberculous or fungal meningitis, in which the glucose is often low; the cryptococcal antigen and the viral PCR assays were negative; and the interferon-γ release assay, although not definitive, lowered the likelihood of tuberculosis. Additional testing for endemic fungi or *T. whipplei* could be considered if the clinical suspicion persisted, but there are no gastrointestinal symptoms, no inflammatory arthritis, and no systemic pattern pointing toward Whipple disease. Herpes simplex encephalitis is made very unlikely by the PCR result and is not a multifocal infarct syndrome. HIV and syphilis serologies are negative. No infectious diagnosis convincingly accounts for the ferritin of 3,150 ng/mL, the LDH of 842 U/L, and the soluble IL-2 receptor of 4,250 U/mL without lymphadenopathy.
+
+### The hemophagocytic syndrome as a unifying physiology
+
+The data also define a hemophagocytic syndrome. This patient has fever, splenomegaly, bicytopenia (anemia and thrombocytopenia), hypertriglyceridemia, a ferritin of 3,150 ng/mL, a markedly elevated soluble IL-2 receptor, and demonstrable hemophagocytosis on the marrow biopsy. That is at least six of the eight HLH-2004 criteria; this woman has *hemophagocytic lymphohistiocytosis*. But HLH in a 58-year-old is almost never a primary, genetic disease — it is a reaction, a final common pathway, driven by an underlying trigger, most often infection, autoimmune disease (macrophage activation syndrome), or malignancy. The infectious and autoimmune evaluations are unrevealing. In an adult with secondary HLH, unexplained encephalopathy, and a soluble IL-2 receptor in the thousands, an occult lymphoma must be sought.
+
+### Malignancy and diagnostic synthesis
+
+Neoplasia therefore becomes the leading category. A solid-tumor or carcinomatous process is made unlikely by the complete absence of a primary mass or adenopathy on PET-CT and by the negative CSF cytology, which argues against carcinomatous meningitis. The diffuse marrow and splenic FDG avidity, the cytopenias, the soluble IL-2 receptor, the β2-microglobulin, and the febrile, wasting illness all point toward a *lymphoproliferative* disorder. Yet there is no lymph-node mass, no nodal disease, and no discrete tumor to biopsy.
+
+This pattern is characteristic of **intravascular large B-cell lymphoma**: a febrile, multisystem, marrow-infiltrating illness with strikingly elevated LDH, ferritin, and soluble IL-2 receptor; multifocal cerebral infarction and fluctuating encephalopathy with normal large vessels and negative CSF cytology; pathologic livedo and telangiectatic skin lesions; secondary hemophagocytic syndrome; and a characteristic absence of lymphadenopathy or a tissue mass.
+
+The pathophysiology accounts for the clinical findings. In intravascular large B-cell lymphoma, the neoplastic large B cells lack the surface adhesion molecules — notably β1 integrin (CD29) and ICAM-1 (CD54) — required to exit the vasculature, so they proliferate and accumulate within the lumina of small and medium vessels, particularly capillaries, venules, and arterioles, rather than forming a mass. The occlusion of cerebral microvessels produces multifocal, multi-territory infarcts of varying age with patent large arteries, encephalopathy out of proportion to any single lesion, and microhemorrhages. The same intraluminal proliferation in dermal vessels produces pathologic livedo and telangiectatic plaques. Because the malignant cells remain within vessels and seldom shed into the subarachnoid space, *CSF cytology is characteristically negative*; the negative cytology and flow cytometry therefore do not exclude this diagnosis. The systemic variant infiltrates the marrow, liver, and spleen, producing cytopenias and triggering hemophagocytic lymphohistiocytosis, with the high LDH, ferritin, soluble IL-2 receptor, and β2-microglobulin reflecting the tumor and the inflammatory response it provokes.
+
+The reason the bone marrow aspirate was initially unrevealing is also instructive: in intravascular lymphoma the malignant cells lodge within the marrow sinusoids and are easily overlooked unless specifically sought on the core biopsy with immunostaining, and the aspirate may miss them entirely.
+
+The diagnostic test is therefore not another scan but a *tissue biopsy of an involved small-vessel bed*. The procedure with the highest yield is a **random skin biopsy** — deep punch or incisional biopsies that include the subcutaneous fat, taken from the livedoid and telangiectatic areas and even from normal-appearing skin, since the disease may be present in cutaneous vessels where the skin looks clinically unremarkable. A repeat bone marrow core biopsy with careful examination of the sinusoids, and, if the skin and marrow were unrevealing, a brain biopsy, would be alternatives. In this case the skin biopsy would be expected to establish the diagnosis.
+
+---
+
+## Clinical Diagnosis
+
+Fever of unknown origin with subacute multifocal encephalopathy, multi-territory cerebral infarction, cytopenias, and a secondary hemophagocytic syndrome, due to a diffuse occlusive small-vessel process — most consistent with intravascular large B-cell lymphoma.
+
+---
+
+## Dr. Helena Brandt's Diagnosis
+
+Intravascular large B-cell lymphoma, with secondary hemophagocytic lymphohistiocytosis.
+
+---
+
+## Pathological Discussion
+
+**Dr. Sofia Nakamura (Pathology):** The diagnostic procedure was a set of random skin biopsies. Three deep punch biopsies extending into the subcutaneous adipose tissue were obtained — one from an area of livedoid mottling on the thigh, one from a telangiectatic patch on the trunk, and one from clinically normal-appearing skin on the upper arm.
+
+On hematoxylin-and-eosin–stained sections, the epidermis was unremarkable, and there was no significant perivascular inflammatory infiltrate of the kind one would expect in a vasculitis. The striking abnormality was confined to the vessels themselves. Numerous dilated small vessels in the deep dermis and within the subcutaneous fat — capillaries, postcapillary venules, and small arterioles — were distended and largely occluded by cohesive aggregates of large, atypical mononuclear cells. These cells had scant cytoplasm, large vesicular nuclei with coarse chromatin, and one or more prominent nucleoli; mitotic figures were frequent, and apoptotic debris was present. Admixed fibrin thrombi were noted within several involved vessels. Importantly, the atypical cells were *intraluminal*; there was minimal infiltration of the surrounding dermal or subcutaneous stroma. The biopsy of normal-appearing skin contained the same intravascular aggregates, confirming that involvement was present even where the skin looked clinically uninvolved.
+
+Immunohistochemical staining established the lineage and localization of these cells. The atypical intraluminal cells were strongly positive for the B-cell markers CD20, PAX5, and CD79a, and were negative for the T-cell marker CD3 and for cytokeratin, excluding a carcinoma. Endothelial markers, CD31 and CD34, decorated a thin rim of endothelium surrounding the neoplastic aggregates, confirming unequivocally that the malignant cells resided *within* the vascular lumina rather than in the perivascular tissue. The cells expressed MUM1/IRF4 and BCL2 and were negative for CD10, with only weak BCL6 expression, indicating a non–germinal-center (activated B-cell–like) immunophenotype. CD5 was expressed by a subset of cells. The proliferation index, assessed by Ki-67, was very high, at approximately 95%. In-situ hybridization for Epstein–Barr virus–encoded RNA (EBER) was negative.
+
+These findings — large, monomorphic, CD20-positive B cells confined to the lumina of small vessels, with a high proliferative fraction and a non–germinal-center phenotype — are diagnostic of **intravascular large B-cell lymphoma**, an aggressive extranodal large B-cell lymphoma that the current World Health Organization classification recognizes as a distinct entity within the diffuse large B-cell lymphoma family.
+
+Prompted by the skin findings, the hematopathology service re-examined the bone marrow core biopsy with immunostains. Scattered CD20-positive large atypical cells were now readily identified within the marrow sinusoids — an intrasinusoidal pattern that had been inapparent on the routine aspirate and the initial core review. This confirmed marrow involvement and corroborated the diffuse FDG avidity seen on PET-CT, and it reconciles with the hemophagocytosis identified earlier: the lymphoma was the trigger for this patient's secondary hemophagocytic lymphohistiocytosis.
+
+This case illustrates the principal diagnostic pitfalls of intravascular large B-cell lymphoma. Because the tumor forms no mass, imaging and even FDG-PET may show only nonspecific or diffuse changes; because the cells remain intravascular, CSF and serous-fluid cytology are typically negative; and because marrow involvement is intrasinusoidal, it is easily missed without targeted immunostaining. The random skin biopsy — including subcutaneous fat and clinically normal skin — is a high-yield, low-morbidity means of obtaining the diagnosis and is the test of choice when this entity is suspected.
+
+---
+
+## Discussion of Management
+
+**Dr. Julian Vance (Hematology–Oncology):** Once the diagnosis of intravascular large B-cell lymphoma was established, treatment was undertaken without delay, because this is a rapidly progressive and frequently fatal disease when recognition is late. The patient was assigned to the cognitively impairing, central-nervous-system–involving form of the illness, and her management reflected two simultaneous imperatives: to treat an aggressive large B-cell lymphoma, and to address central-nervous-system disease and the secondary hemophagocytic syndrome.
+
+She received anthracycline-based chemoimmunotherapy with rituximab, cyclophosphamide, doxorubicin, vincristine, and prednisone (R-CHOP). The addition of the anti-CD20 monoclonal antibody rituximab to anthracycline-based chemotherapy has materially improved outcomes in this disease compared with the pre-rituximab era. Because intravascular large B-cell lymphoma carries a high risk of central-nervous-system involvement and relapse — and because this patient had overt neurologic disease — central-nervous-system–directed therapy was incorporated, centered on high-dose intravenous methotrexate, which penetrates CNS parenchyma. Intrathecal chemotherapy was also given as prophylaxis or adjunctive therapy for leptomeningeal risk, recognizing that its benefit for predominantly parenchymal or intravascular CNS disease is less direct than that of systemic CNS-penetrating therapy. Tumor-lysis precautions, including hydration, rasburicase, and close metabolic monitoring, were instituted given the very high proliferative fraction; the elevated uric acid and LDH at baseline underscored that concern.
+
+The secondary hemophagocytic lymphohistiocytosis was treated by treating its cause. In contrast to fulminant HLH, which may require etoposide- and dexamethasone-based protocols to control a runaway inflammatory state, this patient's hemophagocytic syndrome was driven by the lymphoma, and the corticosteroid and chemotherapy directed at the tumor served simultaneously to quell the cytokine storm. Had she deteriorated with fulminant multiorgan failure before lymphoma-directed therapy could take effect, the addition of etoposide would have been appropriate.
+
+The patient had a clinical response. The fevers and night sweats resolved within the first week of therapy, the ferritin and lactate dehydrogenase fell substantially over the ensuing weeks, and the cytopenias recovered. Her mental status improved gradually over the first two cycles, with return of orientation and improvement in attention and gait, although mild residual word-finding difficulty persisted, consistent with established infarction. Repeat MRI showed no new areas of restricted diffusion. After completing combined systemic and central-nervous-system–directed therapy, she achieved a complete metabolic response on restaging PET-CT, and consolidation was discussed in the context of her age and performance status.
+
+Several teaching points follow. Intravascular large B-cell lymphoma may masquerade as stroke, vasculitis, encephalitis, fever of unknown origin, or a primary hemophagocytic syndrome, and the diagnosis is often delayed. The clinician should suspect it whenever there is unexplained multifocal cerebral ischemia in multiple territories without a cardioembolic or large-vessel source; whenever a febrile, wasting illness is accompanied by a markedly elevated LDH, ferritin, and soluble IL-2 receptor in the absence of lymphadenopathy or a mass; and whenever a secondary hemophagocytic syndrome in an adult lacks an obvious infectious or rheumatologic trigger. The cutaneous variant, which is largely confined to the skin and occurs more often in women, carries a more favorable prognosis than the systemic and central-nervous-system forms. In all forms, the diagnostic key is to obtain tissue from an involved small-vessel bed — most accessibly, the skin — rather than continuing to search imaging studies for a mass that, by the nature of this disease, may not be found. Early recognition followed by rituximab-containing, central-nervous-system–penetrating therapy offers the best chance of durable remission.
+
+---
+
+## Anatomical Diagnosis
+
+Intravascular large B-cell lymphoma (non–germinal-center B-cell immunophenotype), with central-nervous-system and cutaneous involvement and associated secondary hemophagocytic lymphohistiocytosis.

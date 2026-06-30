@@ -1,0 +1,224 @@
+# Case 31-2026: A 24-Year-Old Woman with Subacute Psychosis, Seizures, and Orofacial Dyskinesia
+
+*Case Records of the Wexford General Hospital — A Clinicopathological Exercise*
+
+*The following is an entirely fictional teaching case. All names, dates, case numbers, institutions, laboratory values, and narrative details are invented for instructional purposes and do not depict any real patient, physician, or institution.*
+
+---
+
+## Presentation of the Case
+
+**Dr. Elena Voss (Neurology):** A 24-year-old woman was admitted to the psychiatric service of this hospital because of two weeks of escalating behavioral change and psychosis. Over the subsequent three weeks her illness evolved to include seizures, a movement disorder, and autonomic instability, and her care was transferred to the neurology service and then to the intensive care unit.
+
+The patient had been in her usual excellent health until approximately two weeks before the psychiatric admission, when she developed a self-limited febrile illness. She reported several days of frontal headache, malaise, low-grade fevers measured at home as high as 38.0°C, mild sore throat, and myalgias, which she attributed to a viral illness circulating among her classmates. The symptoms resolved within four to five days with acetaminophen, and she did not seek care. There was no rash, no vesicular eruption of the lips or genitalia, no diarrhea, and no respiratory distress.
+
+Approximately ten days before admission, within days of the apparent resolution of the febrile illness, the patient's roommate and family noticed a change in her behavior and affect. She became uncharacteristically anxious and irritable, slept poorly, and described a pervasive sense of dread. Over the ensuing week the changes accelerated: she voiced the conviction that her roommate was tampering with her food and that strangers on campus were monitoring her, her speech became tangential and frankly disorganized, and she reported hearing voices that commented on her actions and seeing shadowy figures in her apartment. She stopped attending classes and was eventually found pacing and agitated, unable to give a coherent account of the preceding days. She was brought to the emergency department and admitted to the inpatient psychiatric unit with a working diagnosis of a first episode of psychosis.
+
+**Dr. Hannah Kessler (Psychiatry):** On admission to the psychiatry service, the patient was agitated, internally preoccupied, and intermittently responsive to apparent auditory hallucinations, with disorganized thought and paranoid delusions. There were no prior psychiatric diagnoses, episodes of mania or depression, or history of self-harm. Given the severity of her agitation, an oral second-generation antipsychotic agent, risperidone, was initiated, with lorazepam as needed. Over the first 72 hours, however, the picture diverged sharply from a primary psychotic disorder. She had episodes of blank staring and transient unresponsiveness followed by confusion; she became increasingly unable to retain new information, repeatedly asking where she was and failing to recognize family members seen hours earlier. Her speech diminished, and she fluctuated between long periods of mutism and episodes of echolalia, in which she repeated verbatim the last words spoken to her. On the fourth hospital day she had a witnessed generalized tonic–clonic seizure, and the neurology service was consulted urgently.
+
+**Dr. Elena Voss (Neurology):** On examination by the neurology service on the fourth hospital day, her level of consciousness fluctuated markedly within a single examination, from agitated wakefulness to somnolence from which she could be only briefly aroused, and she did not follow commands reliably. Most striking was a movement disorder absent on her psychiatric admission: near-continuous orofacial-lingual dyskinesias — repetitive lip-smacking, chewing, grimacing, and forceful tongue protrusion — with intermittent forced upward deviation of the eyes consistent with oculogyric movements, and choreoathetoid writhing of the fingers and distal limbs. These movements persisted during drowsiness, were not suppressible, and lacked the rhythmic, evolving character of a focal motor seizure.
+
+After the seizure, levetiracetam was begun, and the patient was transferred to the neurology service. Over the next several days her course was punctuated by focal seizures, characterized by behavioral arrest with facial twitching, and two further generalized convulsions. The antipsychotic had been continued on transfer at a reduced dose for agitation; on the seventh hospital day she became rigid, diaphoretic, and hyperthermic, with a temperature of 39.4°C, generalized "lead-pipe" rigidity, and an elevated serum creatine kinase. The neuroleptic was discontinued immediately and the rigidity and hyperthermia treated supportively; the rigidity improved over two days, although the dyskinesias persisted.
+
+In the second week the patient developed pronounced autonomic instability. Her blood pressure oscillated between 165/102 mm Hg and 88/54 mm Hg over short intervals without intervention; her heart rate alternated between sinus tachycardia up to 148 beats per minute and abrupt sinus bradycardia, with one episode of bradycardia to 38 beats per minute and a brief sinus pause. She had recurrent hyperthermia to 39°C without an identified infectious source, alternating with normal temperature, and episodes of shallow, irregular breathing with hypoventilation and oxygen desaturation. Because of recurrent central hypoventilation, depressed consciousness, and inability to protect her airway, she was transferred to the intensive care unit and intubated.
+
+The patient had no significant past medical history. She had no prior surgeries and took no regular medications other than a combined oral contraceptive pill; the antipsychotic agent and antiseizure medication had been started during this admission. She had no known drug allergies. Her childhood and adult immunizations were up to date. There was no history of febrile seizures, head trauma, migraine, or autoimmune disease.
+
+The patient was a graduate student in environmental science who lived with one roommate in a university town in the northeastern United States. She had never smoked, drank alcohol socially on weekends, and did not use illicit drugs; a urine toxicology screen obtained on presentation, before hospital-administered sedatives, was negative. She was sexually active in a monogamous relationship with one male partner, using the oral contraceptive with condoms. She had not traveled outside the region in the preceding year and had no known tick bites, unusual mosquito exposure, livestock exposure, or contact with unwell animals beyond a healthy household cat. There were no recent sick contacts apart from the respiratory illness circulating among her classmates.
+
+The family history was unremarkable, with no epilepsy, psychiatric illness, autoimmune disease, or premature dementia. On review of systems, obtained from the patient before her decline and from her family thereafter, there had been no preceding herpetic cold sores or genital ulcers, no rash, no joint swelling, no photosensitivity, no oral ulcers, no Raynaud phenomenon, no weight loss before the acute illness, and no menstrual irregularity. There had been no preceding episode of encephalitis.
+
+On general examination in the intensive care unit, the patient was an intubated, sedated, well-nourished young woman. The skin showed no rash or petechiae, and there was no lymphadenopathy. Cardiac and pulmonary examinations were unremarkable apart from the fluctuating vital signs already described. The abdomen was soft, without palpable mass or organomegaly; a pelvic examination by the gynecology service revealed no adnexal mass on bimanual palpation. There was no nuchal rigidity, and the Kernig and Brudzinski signs were absent.
+
+On neurologic examination, the patient opened her eyes spontaneously at times but did not fix, track, or follow commands. Pupillary, corneal, oculocephalic, and gag reflexes were intact. The orofacial-lingual dyskinesias and choreoathetoid limb movements persisted even during light sedation, without sustained gaze deviation to suggest ongoing focal seizure. Tone was intermittently increased; there was no fixed focal weakness, and she withdrew all four limbs symmetrically to noxious stimulation. The deep-tendon reflexes were symmetrically brisk, the plantar responses flexor, and meningeal signs absent.
+
+Laboratory studies are shown in **Table 1** and **Table 2**. The complete blood count, comprehensive metabolic panel, thyrotropin, ammonia, and lactate were normal, and the creatine kinase was mildly elevated. Antinuclear antibody and human immunodeficiency virus testing were negative, the rapid plasma reagin test was nonreactive, and the presentation urine toxicology screen and blood ethanol were negative.
+
+**Table 1. Hematologic and Clinical Chemistry Studies.**
+
+| Variable | Patient's Value | Reference Range |
+|---|---|---|
+| Hemoglobin (g/dL) | 13.1 | 12.0–16.0 |
+| Hematocrit (%) | 39.4 | 36.0–46.0 |
+| White-cell count (×10⁹/L) | 8.2 | 4.5–11.0 |
+| Differential | Normal | — |
+| Platelet count (×10⁹/L) | 268 | 150–400 |
+| Sodium (mmol/L) | 139 | 135–145 |
+| Potassium (mmol/L) | 4.0 | 3.5–5.0 |
+| Chloride (mmol/L) | 103 | 98–107 |
+| Bicarbonate (mmol/L) | 25 | 22–30 |
+| Urea nitrogen (mg/dL) | 12 | 7–20 |
+| Creatinine (mg/dL) | 0.8 | 0.6–1.1 |
+| Glucose (mg/dL) | 96 | 70–110 |
+| Calcium (mg/dL) | 9.4 | 8.5–10.5 |
+| Magnesium (mg/dL) | 2.0 | 1.7–2.4 |
+| Phosphorus (mg/dL) | 3.5 | 2.5–4.5 |
+| Aspartate aminotransferase (U/L) | 28 | 10–40 |
+| Alanine aminotransferase (U/L) | 24 | 7–35 |
+| Alkaline phosphatase (U/L) | 72 | 35–105 |
+| Total bilirubin (mg/dL) | 0.6 | 0.1–1.0 |
+| Albumin (g/dL) | 4.1 | 3.5–5.0 |
+| Creatine kinase (U/L) | 540 | 30–200 |
+| Ammonia (µmol/L) | 24 | 11–32 |
+| Lactate (mmol/L) | 1.3 | 0.5–2.2 |
+| Thyrotropin (µIU/mL) | 2.1 | 0.4–4.0 |
+
+**Table 2. Inflammatory, Toxicologic, and Serologic Studies.**
+
+| Variable | Patient's Value | Reference Range |
+|---|---|---|
+| Erythrocyte sedimentation rate (mm/hr) | 22 | 0–20 |
+| C-reactive protein (mg/L) | 13 | <5 |
+| Antinuclear antibody | Negative | Negative |
+| Urine toxicology screen, obtained on presentation (amphetamines, barbiturates, benzodiazepines, cocaine metabolite, opioids, phencyclidine, cannabinoids) | Negative | Negative |
+| Blood ethanol (mg/dL) | <10 | <10 |
+| HIV antigen/antibody | Negative | Negative |
+| Rapid plasma reagin | Nonreactive | Nonreactive |
+
+A lumbar puncture was performed; results of cerebrospinal-fluid (CSF) analysis are shown in **Table 3**. The opening pressure was normal, and there was a lymphocyte-predominant pleocytosis with mildly elevated protein and normal glucose. Gram staining, bacterial culture, polymerase-chain-reaction (PCR) assays for herpes simplex virus types 1 and 2, varicella–zoster virus, and enterovirus, and a cryptococcal antigen assay were all negative. The CSF venereal disease research laboratory (VDRL) test was nonreactive, and cytologic examination revealed no malignant cells. The IgG index was elevated, and isoelectric focusing demonstrated CSF-restricted oligoclonal bands not present in a paired serum sample.
+
+**Table 3. Cerebrospinal-Fluid Studies.**
+
+| Variable | Patient's Value | Reference Range |
+|---|---|---|
+| Opening pressure (cm H₂O) | 16 | 10–20 |
+| Appearance | Clear, colorless | Clear, colorless |
+| Nucleated cells (per µL) | 62 | 0–5 |
+| Lymphocytes (%) | 92 | — |
+| Red cells (per µL) | 2 | 0 |
+| Protein (mg/dL) | 55 | 15–45 |
+| Glucose (mg/dL) | 62 | 40–70 |
+| Simultaneous serum glucose (mg/dL) | 95 | 70–110 |
+| IgG index | 0.86 | <0.66 |
+| Oligoclonal bands (CSF-restricted) | 4 | <2 |
+| Gram stain and bacterial culture | Negative | Negative |
+| Herpes simplex virus 1/2 PCR | Negative | Negative |
+| Varicella–zoster virus PCR | Negative | Negative |
+| Enterovirus PCR | Negative | Negative |
+| Cryptococcal antigen | Negative | Negative |
+| VDRL | Nonreactive | Nonreactive |
+| Cytology | No malignant cells | — |
+
+**Dr. Thomas Reyes (Radiology):** Magnetic resonance imaging (MRI) of the brain, performed with and without intravenous contrast material, was essentially unremarkable. There was no mass, no restricted diffusion to indicate acute infarction, and no parenchymal or leptomeningeal enhancement. On fluid-attenuated inversion recovery (FLAIR) sequences there was only subtle, nonspecific hyperintensity in the mesial aspect of both temporal lobes, without swelling, hemorrhage, or the gyriform cortical and hemorrhagic change that characterize herpes simplex encephalitis. Gradient-echo imaging showed no microhemorrhage, and magnetic resonance angiography of the intracranial vessels showed no stenosis, beading, or aneurysm.
+
+**Dr. Elena Voss (Neurology):** Continuous electroencephalography (EEG), undertaken for the fluctuating consciousness and seizures, showed a diffusely slow background with generalized delta- and theta-range activity and poor reactivity, together with occasional electrographic seizures arising independently from the temporal regions. For prolonged periods the recording demonstrated a distinctive pattern: rhythmic delta activity at 1 to 3 Hz with superimposed bursts of beta-frequency activity riding on each delta wave, a configuration referred to as the "extreme delta brush." The orofacial dyskinesias had no consistent electrographic correlate, confirming that they were not seizures.
+
+Because the clinical syndrome raised concern for an autoimmune, possibly paraneoplastic, encephalitis, dedicated pelvic imaging was obtained. Transvaginal ultrasonography revealed a complex cystic lesion of the right ovary, approximately 4.6 cm in greatest dimension, containing echogenic material with posterior acoustic shadowing and a hyperechoic mural nodule. Pelvic MRI confirmed a 4.6-cm right adnexal mass containing macroscopic fat that suppressed on fat-saturated sequences, with foci of calcification and a mural Rokitansky nodule — a constellation characteristic of a mature ovarian teratoma. Computed tomography of the chest, abdomen, and remaining pelvis revealed no additional mass and no lymphadenopathy.
+
+Serum and cerebrospinal-fluid specimens were sent for autoimmune-encephalitis antibody testing, and, in coordination with the gynecologic-oncology service, a diagnostic procedure was performed.
+
+---
+
+## Differential Diagnosis
+
+**Dr. Adrian Maro (Neurology):** The diagnostic problem is best approached by assembling the syndrome and emphasizing its temporal sequence, which is the strongest diagnostic clue.
+
+This previously healthy 24-year-old woman had an illness that unfolded in distinct, sequential phases over roughly five weeks. First, there was a nonspecific *viral-like prodrome* — headache, low-grade fever, and malaise — that resolved spontaneously. Second, after a brief interval, there was the subacute onset of a *psychiatric and behavioral syndrome*: anxiety, insomnia, paranoid delusions, disorganized thought, and auditory and visual hallucinations, severe enough to prompt admission for presumed first-episode psychosis. Third, within days, *cognitive and arousal* features appeared — dense anterograde amnesia and a fluctuating level of consciousness — accompanied by a profound reduction in speech alternating between mutism and echolalia, the latter strongly reminiscent of catatonia. Fourth, there were *seizures*, both focal and generalized. Fifth, there was a striking *movement disorder*: near-continuous orofacial-lingual dyskinesia, oculogyric movements, and choreoathetosis that persisted into drowsiness and lacked an electrographic correlate. Sixth, there was *autonomic instability* — labile blood pressure, alternating tachycardia and bradycardia with a sinus pause, episodic hyperthermia, and, most dangerously, central hypoventilation requiring mechanical ventilation.
+
+No single localizable lesion explains this picture. The syndrome is instead a diffuse, multifocal encephalopathy with prominent involvement of the limbic system, the frontostriatal and brainstem circuits that govern movement and arousal, and the central autonomic network. In a young, previously well woman with psychosis, amnesia, catatonia, seizures, a dyskinetic movement disorder, and dysautonomia over a matter of weeks, the differential diagnosis is broad but ultimately convergent.
+
+### A primary psychiatric disorder
+
+The discussion should begin where the patient herself began — on the psychiatric unit, with a diagnosis of first-episode psychosis. The early presentation is genuinely indistinguishable, at the bedside, from the prodrome and acute phase of a primary psychotic illness such as schizophrenia or a schizophreniform disorder, and the peak incidence of these disorders in young adulthood matches her demographic precisely. This is a common diagnostic trap; many such patients are managed for days or weeks as psychiatric patients before the true nature of the disease declares itself.
+
+But a primary psychiatric disorder cannot survive contact with the rest of the data. Schizophrenia does not cause seizures, it does not cause orofacial dyskinesia in a neuroleptic-naïve patient, it does not cause autonomic storming with central hypoventilation, and — decisively — it does not produce a lymphocytic pleocytosis with oligoclonal bands in the cerebrospinal fluid. The presence of a preceding febrile prodrome, the rapid evolution to depressed consciousness and seizures, and the unequivocally inflammatory CSF are all "red flags" that mandate a search for an organic, and specifically an inflammatory, cause of psychosis. The early psychiatric label was reasonable, but it was the first chapter of the illness, not its explanation.
+
+### Infectious encephalitis, and herpes simplex virus in particular
+
+A febrile prodrome followed by psychiatric symptoms, amnesia, and seizures, with a lymphocytic CSF pleocytosis, should always raise the specter of an infectious encephalitis — and above all of *herpes simplex virus (HSV) encephalitis*, the most common sporadic fatal encephalitis and an eminently treatable one. The stakes are high enough that empirical acyclovir is appropriate in any such patient until HSV is excluded.
+
+Yet several features argue strongly against active HSV encephalitis. The MRI did not show the asymmetric, often hemorrhagic, gyriform necrosis of the medial temporal lobes, insula, and inferior frontal cortex that is the radiologic signature of the disease; instead it was nearly normal, with only subtle nonspecific FLAIR change. The CSF glucose was normal, the red-cell count was not elevated, and — most importantly — the HSV PCR was negative. A single negative PCR very early in the disease can be falsely negative, but the radiologic and clinical picture here does not fit. Enterovirus and varicella–zoster PCR were likewise negative, the cryptococcal antigen was negative, bacterial cultures were sterile, and the normal CSF glucose argues against typical tuberculous or fungal meningoencephalitis, although it would not exclude those diagnoses by itself. HIV and syphilis testing were negative.
+
+There is, however, a crucial connection between HSV encephalitis and autoimmune encephalitis. It is now well established that a subset of patients who recover from herpes simplex encephalitis go on, weeks later, to develop an autoimmune encephalitis — most often mediated by antibodies against the N-methyl-D-aspartate (NMDA) receptor — as a post-infectious phenomenon, sometimes presenting as choreoathetosis in children or as relapsing psychiatric and neurologic symptoms in adults. This patient had no documented prior herpes simplex encephalitis, so she does not represent that specific scenario, but the link indicates that a viral encephalitis and an antibody-mediated encephalitis are not mutually exclusive — the former can trigger the latter. The viral-like prodrome in this case is entirely compatible with the recognized prodrome of anti-NMDA receptor encephalitis.
+
+### Autoimmune and paraneoplastic encephalitis
+
+The leading category is autoimmune encephalitis, particularly encephalitis associated with antibodies against neuronal cell-surface or synaptic antigens. These disorders characteristically produce subacute limbic and extralimbic syndromes — memory impairment, psychiatric disturbance, seizures, movement disorders, and dysautonomia — frequently with an inflammatory CSF and a normal or near-normal MRI, and a substantial proportion are paraneoplastic. The principal disorders in this group must be compared.
+
+*Anti–leucine-rich glioma-inactivated 1 (LGI1) encephalitis* typically affects older adults, more often men, and presents with a limbic syndrome of amnesia and seizures, frequently with the pathognomonic faciobrachial dystonic seizures and with hyponatremia from the syndrome of inappropriate antidiuresis. This patient is young and normonatremic, her movement disorder is a continuous orofacial-lingual dyskinesia rather than the brief, stereotyped faciobrachial dystonic seizures of LGI1 disease, and LGI1 encephalitis is usually non-paraneoplastic. It does not fit.
+
+*Anti–γ-aminobutyric-acid-B (GABA-B) receptor encephalitis* presents with prominent, often refractory seizures and limbic encephalitis, and it is strongly associated with small-cell lung carcinoma in older smokers — again, a poor match for a 24-year-old nonsmoker with a prominent dyskinetic and psychiatric syndrome. *Anti–α-amino-3-hydroxy-5-methyl-4-isoxazolepropionic-acid (AMPA) receptor encephalitis* causes limbic encephalitis with prominent psychiatric features and is associated with thymoma and with lung and breast carcinoma, typically in middle-aged adults; it is uncommon and does not characteristically produce the orofacial dyskinesia–dysautonomia–hypoventilation triad. *Anti–contactin-associated protein-like 2 (Caspr2) encephalitis* underlies Morvan syndrome, with peripheral nerve hyperexcitability (neuromyotonia), neuropathic pain, dysautonomia, and insomnia, often with thymoma; the peripheral findings and demographic do not fit here.
+
+Then there is *anti-NMDA receptor encephalitis*. This entity maps closely onto the patient's presentation. It is the most common antibody-mediated encephalitis in young adults and children, with a marked female predominance, and it frequently begins with a viral-like prodrome. It then produces, in a characteristic and well-described sequence, the phases seen in this case: a psychiatric phase with anxiety, paranoia, hallucinations, and disorganized behavior that routinely leads to psychiatric admission; followed by a phase of short-term memory loss, reduced and fragmented speech progressing to mutism and echolalia, decreased consciousness, and seizures; followed by a hyperkinetic phase dominated by orofacial-lingual dyskinesias, oculogyric movements, and choreoathetosis; and culminating in autonomic instability and central hypoventilation that frequently requires intensive care and prolonged mechanical ventilation. The CSF in this disorder shows a lymphocytic pleocytosis with oligoclonal bands and an elevated IgG index, the MRI is normal or only subtly abnormal in the majority of patients, and the EEG may show generalized slowing and, in a minority, the highly suggestive extreme delta brush pattern — all of which are present here.
+
+Anti-NMDA receptor encephalitis is, in young women, frequently *paraneoplastic*, with the responsible tumor being an *ovarian teratoma*. The pelvic imaging in this patient has already revealed a 4.6-cm fat- and calcification-containing complex cystic right adnexal mass — a mature ovarian teratoma. The tumor, the antibody-mediated encephalitis, the demographic, and the clinical sequence therefore form a coherent diagnosis.
+
+### Neuroleptic malignant syndrome and serotonin syndrome
+
+An alternative that arose in real time on the ward must also be addressed. After the patient received an antipsychotic agent, she developed rigidity, hyperthermia to 39.4°C, autonomic instability, and a mild creatine kinase elevation — an *NMS-like reaction* that appropriately prompted discontinuation of the offending agent. But primary drug-induced neuroleptic malignant syndrome cannot be the unifying diagnosis. It does not explain the febrile prodrome, the psychosis, or the seizures that *preceded* the antipsychotic; it does not explain the amnesia, the catatonic mutism and echolalia, or the dyskinesias that were documented before and independently of the rigidity; and it does not explain the inflammatory CSF. There is, moreover, a vital and well-recognized interaction here: patients with anti-NMDA receptor encephalitis are highly sensitive to antipsychotic drugs and may develop a severe NMS-like reaction, with rigidity, hyperthermia, autonomic instability, and rhabdomyolysis. In this setting, the apparent NMS is not a competing diagnosis but a complication of the underlying encephalitis and its treatment. The mildly elevated creatine kinase is readily accounted for by the combination of the continuous movement disorder and this drug reaction.
+
+*Serotonin syndrome* deserves brief mention because it also produces autonomic instability, hyperthermia, and altered mental status, but it is characterized by neuromuscular hyperactivity with clonus and hyperreflexia, typically with a lower-limb predominance, and it requires exposure to serotonergic agents, of which this patient had none. It does not fit.
+
+### Drug intoxication and withdrawal
+
+A toxic cause must always be excluded in acute psychosis with movement abnormalities and dysautonomia. *Phencyclidine and ketamine*, which are NMDA-receptor antagonists, can reproduce a similar clinical picture of psychosis, dissociation, dyskinesia, and autonomic change. But the standard urine toxicology screen, including phencyclidine, was negative, although such screens do not reliably detect ketamine or all novel psychoactive agents; the blood ethanol was undetectable, and there is no history of substance use or of withdrawal from alcohol or sedatives. More importantly, an intoxication or withdrawal syndrome would not explain the inflammatory CSF, oligoclonal bands, extreme delta brush pattern, and ovarian teratoma. Drug intoxication and withdrawal are therefore unlikely as unifying diagnoses.
+
+### Status epilepticus and nonconvulsive status
+
+Because the patient had focal and generalized seizures and a fluctuating level of consciousness, *nonconvulsive status epilepticus* must be considered as a contributor to her encephalopathy. The continuous EEG did capture occasional electrographic seizures of temporal origin, and these warrant treatment. However, the recording did not show continuous ictal activity sufficient to explain the entire syndrome, the orofacial dyskinesias had no electrographic correlate and are therefore not seizures, and seizures alone do not explain the antecedent psychosis, the catatonia, or the dysautonomia. The seizures are part of the disease, not the whole of it.
+
+### Central-nervous-system vasculitis and other inflammatory mimics
+
+*Primary angiitis of the central nervous system* and CNS involvement by a systemic vasculitis or lupus can cause subacute encephalopathy, psychiatric symptoms, and seizures with an inflammatory CSF. Small-vessel primary CNS angiitis can have normal angiography, but a normal or near-normal MRI would be unusual in active CNS vasculitis, and there are no focal infarcts, hemorrhages, systemic features, or serologic clues to support lupus or another systemic rheumatologic disease. *Steroid-responsive encephalopathy associated with autoimmune thyroiditis (Hashimoto encephalopathy)* can cause a relapsing encephalopathy with seizures and psychiatric features and is worth keeping in mind; testing for thyroid peroxidase and thyroglobulin antibodies would be reasonable, and a normal thyrotropin would not exclude it. Still, it does not account for the highly specific dyskinesia–dysautonomia–hypoventilation phenotype as elegantly as the diagnosis I favor, and it remains a diagnosis of exclusion. *Acute disseminated encephalomyelitis* would be expected to produce multifocal demyelinating lesions on MRI, which are absent.
+
+### Wernicke encephalopathy, metabolic, and prion disease
+
+For completeness: *Wernicke encephalopathy* from thiamine deficiency causes a confusional state with ophthalmoplegia and ataxia, usually in a nutritionally compromised patient; this young woman had no nutritional risk, no ophthalmoplegia, and the wrong overall phenotype. A *metabolic or endocrine encephalopathy* — hepatic, uremic, hypoglycemic, hyper- or hyponatremic, hypercalcemic, or thyroid-related — is not supported by her normal electrolytes, renal and hepatic function, glucose, calcium, ammonia, and thyrotropin. *Creutzfeldt–Jakob disease* causes a rapidly progressive encephalopathy with a movement disorder, but the movement disorder is typically myoclonus rather than orofacial dyskinesia, the disease is exceptionally rare at 24 years of age, the EEG hallmark is periodic sharp-wave complexes rather than extreme delta brush, the MRI characteristically shows cortical ribboning and basal-ganglia diffusion restriction, and a lymphocytic CSF pleocytosis with oligoclonal bands is not a feature of prion disease. It is very unlikely.
+
+### Synthesis
+
+When the entire illness is compared with each candidate diagnosis, one diagnosis accommodates every element without strain. A young woman has a viral-like prodrome; then psychiatric symptoms severe enough to be admitted as a first psychosis; then amnesia, catatonic mutism and echolalia, and reduced consciousness; then focal and generalized seizures; then orofacial-lingual dyskinesia, oculogyric movements, and choreoathetosis without an electrographic correlate; then autonomic instability with central hypoventilation; an exaggerated, NMS-like sensitivity to antipsychotic medication; a lymphocytic CSF pleocytosis with oligoclonal bands and an elevated IgG index; a near-normal MRI; an EEG with diffuse slowing and an extreme delta brush; and a mature ovarian teratoma on pelvic imaging. This is the characteristic natural history of anti-NMDA receptor encephalitis, paraneoplastic to an ovarian teratoma.
+
+The diagnostic imperative follows directly. In a young woman with psychiatric onset plus seizures plus a movement disorder plus dysautonomia, one must actively seek anti-NMDA receptor encephalitis and its tumor. Testing should be performed for IgG antibodies against the GluN1 (NR1) subunit of the NMDA receptor, and — this is the essential technical point — the *cerebrospinal fluid* should be tested, not serum alone, because CSF testing is substantially more sensitive and more specific for this diagnosis; serum testing alone yields both false negatives and false positives. The anticipated diagnostic procedures are therefore the detection of NMDA-receptor antibody in the CSF by a cell-based assay and the surgical resection of the ovarian teratoma, which is both diagnostic and therapeutic.
+
+---
+
+## Clinical Diagnosis
+
+Subacute autoimmune (antibody-mediated) encephalitis with psychiatric onset, seizures, a hyperkinetic movement disorder, and autonomic instability — most consistent with anti-NMDA receptor encephalitis associated with a mature ovarian teratoma.
+
+---
+
+## Dr. Adrian Maro's Diagnosis
+
+Anti-NMDA receptor encephalitis associated with a mature ovarian (cystic) teratoma.
+
+---
+
+## Pathological and Laboratory Discussion
+
+**Dr. Lucia Ferraro (Neuroimmunology):** The first diagnostic procedure was the serologic and cerebrospinal-fluid testing for neuronal surface antibodies, and the confirmatory result was the detection of IgG antibodies against the GluN1 (also designated NR1) subunit of the NMDA receptor. Two complementary techniques were used. In the *cell-based assay*, human embryonic kidney (HEK293) cells are transfected to express GluN1-containing NMDA receptors on the cell surface in a native-like conformation. The patient's cerebrospinal fluid and serum are applied to these live or fixed cells; if antibodies against the extracellular domain of GluN1 are present, they bind the surface receptor and are then visualized with a fluorophore-conjugated anti-human IgG secondary antibody. The patient's CSF produced intense, specific surface staining of the GluN1-transfected cells and no staining of untransfected control cells, establishing the presence of anti-GluN1 IgG. In the complementary *tissue-based immunohistochemical assay*, the patient's CSF was applied to sagittal sections of rodent (rat) brain; the antibody produced the characteristic intense neuropil staining, most prominent in the molecular layer of the hippocampus, that is typical of NMDA-receptor antibodies and reflects the dense synaptic distribution of the receptor.
+
+It is worth emphasizing why the cerebrospinal fluid was tested and not serum alone. For anti-NMDA receptor encephalitis, CSF antibody testing is both more sensitive and more specific than serum testing; CSF is positive in nearly all affected patients, whereas serum may be negative, particularly after immunotherapy, and low serum titers can occur without disease. The antibodies are synthesized intrathecally, which accounts for the CSF-restricted oligoclonal bands and the elevated IgG index observed in this patient. In this case both compartments were positive, with a higher relative titer in the CSF.
+
+The pathophysiology explains the syndrome. The antibody is not merely a marker; it is *pathogenic*. It binds an extracellular epitope of the GluN1 subunit and causes reversible cross-linking and internalization of surface NMDA receptors, reducing the density of these receptors at the synapse without killing the neuron. NMDA receptors are critical to glutamatergic excitatory neurotransmission and synaptic plasticity, and a state of NMDA-receptor hypofunction reproduces the clinical features in this case — the psychosis and cognitive disturbance, the movement disorder, the seizures, and the autonomic and respiratory dysregulation. This is the same receptor that is blocked pharmacologically by phencyclidine and ketamine, which is why those drugs mimic the illness. Because the mechanism is antibody-mediated receptor internalization rather than neuronal destruction, it is in large part *reversible*: when the antibody is removed and its production halted, surface receptors are re-expressed and function can recover, which is the biologic basis for the substantial recovery that is possible even after a severe and protracted illness.
+
+**Dr. Samuel Okonkwo (Pathology):** The second diagnostic procedure was a laparoscopic right ovarian cystectomy with removal of the adnexal mass, performed by the gynecologic-oncology service. On gross examination, the specimen was a unilocular cystic mass measuring 4.7 cm, filled with sebaceous material and matted hair, with a raised mural nodule (the Rokitansky protuberance) from which hair and a focus of calcified tissue arose — the classic gross appearance of a mature cystic teratoma, or dermoid cyst.
+
+On microscopical examination, the cyst was lined predominantly by keratinizing squamous epithelium with associated skin adnexal structures — sebaceous glands and hair follicles — and contained mature tissues derived from all three germ layers, including respiratory-type epithelium, gastrointestinal-type glandular epithelium, smooth muscle, adipose tissue, and cartilage. All elements were *mature*, without the primitive neuroepithelial tubules or atypia that would indicate an immature teratoma, and there was no evidence of malignant transformation. Importantly, the tumor contained well-developed *neuroglial tissue* — mature neurons, glia, and organized neural elements of ectodermal origin. Immunohistochemical staining of this neural component demonstrated expression of the NMDA receptor, with positive staining for the GluN1 subunit, and the neuroglial foci were infiltrated by lymphocytes, including B cells and antibody-secreting plasma cells, with reactive germinal-center–like aggregates.
+
+These findings establish the antigenic source of the autoimmune response. The teratoma contains neural tissue that ectopically expresses the NMDA receptor outside the immune-privileged environment of the central nervous system; this displayed antigen can be taken up and presented to the immune system, breaking tolerance and driving a peripheral and intrathecal anti-GluN1 immune response. Antibodies produced systemically may access the central nervous system when blood–brain barrier permeability is increased, and intrathecal synthesis sustains the attack on the patient's own NMDA receptors. The presence of teratomatous neural tissue expressing GluN1, together with the infiltrating lymphoid population, links the tumor mechanistically to the encephalitis and explains why removal of the tumor is therapeutic.
+
+Taken together, the CSF cell-based assay demonstrating anti-GluN1 IgG and the resected ovarian mature teratoma containing GluN1-expressing neural tissue establish the diagnosis of paraneoplastic anti-NMDA receptor encephalitis.
+
+---
+
+## Discussion of Management
+
+**Dr. Naomi Albrecht (Neurocritical Care):** The management of anti-NMDA receptor encephalitis rests on two simultaneous principles: removal of the antigenic stimulus and suppression of the antibody-mediated immune response, all delivered against a backdrop of meticulous supportive care, because the illness is protracted and its complications are life-threatening.
+
+The single most important disease-specific intervention in a patient with an identifiable tumor is *prompt tumor resection*. In this patient, laparoscopic removal of the ovarian teratoma was both diagnostic and therapeutic; resection of the tumor removes the source of antigen, accelerates recovery, improves outcome, and substantially reduces the risk of relapse. Concurrently, *first-line immunotherapy* was begun without waiting for full recovery, comprising high-dose intravenous methylprednisolone together with intravenous immunoglobulin; plasma exchange is an alternative or additional first-line agent and is often combined with corticosteroids. Because the clinical response to first-line therapy can be incomplete or slow, escalation to *second-line immunotherapy* — rituximab, an anti-CD20 monoclonal antibody that depletes the B cells responsible for antibody production, and/or cyclophosphamide — is undertaken in patients who do not respond adequately. This patient, who remained severely affected after two weeks of first-line treatment, received rituximab, with subsequent gradual improvement.
+
+Supportive intensive care was central and prolonged. The central hypoventilation required mechanical ventilation, and she ultimately underwent tracheostomy during a ventilator course of several weeks. The autonomic instability demanded careful, conservative management: the labile, oscillating blood pressure and the alternating tachycardia and bradycardia are characteristic of the disease and are best managed by avoiding aggressive correction of transient swings, since overtreatment can precipitate the opposite extreme; atropine and transcutaneous pacing capability were kept available for clinically significant bradyarrhythmias and sinus pauses. Seizures and electrographic seizures were treated with antiseizure medications and continuous EEG monitoring. The hyperkinetic movement disorder, which can be severe enough to cause rhabdomyolysis, was managed symptomatically.
+
+A specific therapeutic caution deserves emphasis: *antipsychotic agents should be used sparingly, if at all*, in these patients. As this case illustrates, patients with anti-NMDA receptor encephalitis are highly susceptible to neuroleptic malignant syndrome–like reactions, and the early administration of an antipsychotic for presumed primary psychosis contributed to her rigidity and hyperthermia. When pharmacologic control of agitation is required, agents such as benzodiazepines or dexmedetomidine, and treatment of any underlying catatonia, are generally preferable to neuroleptics.
+
+The clinical course was prolonged, as is typical of this disease. Recovery characteristically occurs slowly and in the reverse order of symptom appearance, over many months. This patient remained in the intensive care unit for several weeks and required inpatient neurorehabilitation thereafter. The dysautonomia and hypoventilation resolved first, allowing decannulation; the dyskinesias and seizures abated; and her cognition, behavior, and speech recovered gradually over the subsequent months. By six months she had returned to living independently, with mild residual deficits in working memory and executive function and a degree of amnesia for the period of her illness, and she was able to resume her graduate studies in a modified capacity. With the tumor removed and immunotherapy completed, her risk of relapse was low, but because relapses occur in a minority of patients she remained under long-term neurologic surveillance, including periodic pelvic imaging.
+
+This case carries several enduring teaching points. First, a subacute first episode of psychosis in a young person — especially when accompanied by a preceding viral-like prodrome, seizures, a movement disorder, decreased consciousness, dysautonomia, or an inflammatory CSF — must prompt consideration of an organic, treatable autoimmune encephalitis rather than a primary psychiatric disorder; the psychiatric presentation is a mask, not the disease. Second, the diagnosis depends on testing for NMDA-receptor (anti-GluN1) IgG in the *cerebrospinal fluid*, which is more sensitive and specific than serum testing. Third, in young women the diagnosis obligates a deliberate, dedicated search for an *ovarian teratoma*, which is the curable cause in a substantial fraction of cases. Fourth, antipsychotics should be used with great caution given the risk of a neuroleptic malignant syndrome–like reaction. And finally, clinicians should remember the link with herpes simplex encephalitis: anti-NMDA receptor encephalitis can arise as a post-infectious sequela of herpes simplex encephalitis, so new or relapsing neuropsychiatric symptoms after a herpetic encephalitis should prompt testing for this antibody. Recognized and treated, this once-mysterious and frequently fatal illness is, in most patients, reversible.
+
+---
+
+## Anatomical / Final Diagnosis
+
+Anti-NMDA (N-methyl-D-aspartate) receptor encephalitis associated with an ovarian mature (cystic) teratoma.

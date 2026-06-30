@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# SDBench run outputs
+results/
+
+# Datasets: keep the READMEs under data/, never commit the (restricted) data itself
+/data/**
+!/data/**/
+!/data/**/README.md
+# Synthetic demo dataset is published in full (the default out-of-the-box dataset)
+!/data/processed_case_data/synthetic/**
+!/data/synthetic_case_data/**
