@@ -1,6 +1,6 @@
 # Proposed longitudinal study
 
-**Study design; no patient evaluation has been run.** The adapter now supports
+**Study design; private outcomes are not included here.** The adapter supports
 one frozen recorded-only episode through the released SDBench baseline. The
 [implemented contract](RECORDED_EPISODES.md) separates permitted evidence from the
 expert reference. One-shot comparisons and evaluator ensembles remain planned.

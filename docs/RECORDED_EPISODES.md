@@ -13,7 +13,7 @@ Private preparation: short opening + permitted extracts + expert reference
     |       final diagnosis ---------------------------+
     |                                                  |
     +-- Gatekeeper sidecar: permitted evidence          |
-    |       model selects IDs from labels/aliases      |
+    |       model selects IDs from permitted excerpts |
     |       code renders exact stored excerpts         |
     |       missing selection -> "not documented"      |
     |       protected events + per-call ledger --------+
@@ -24,15 +24,29 @@ Private preparation: short opening + permitted extracts + expert reference
             host-only report -> dialogue + evidence + reference
 ```
 
-The model selector receives request text and catalog IDs, kinds, labels and
-aliases. It does not receive observation prose or the reference. It returns one
-ID list per request. Unknown IDs, duplicates, wrong question/test kinds and
+The v2 selector receives request text and catalog IDs, kinds, labels, aliases,
+permitted evidence text and relative dates. It does not receive the expert
+reference or source identifiers. Reading the excerpt lets it distinguish an
+explicit answer from an unrelated finding under a broad label such as ROS.
+It is instructed to select all available components of a requested panel,
+including normal and zero results, and keep single-analyte requests narrow.
+For compound requests it should select available evidence even if another component is missing; the excerpts do
+not establish that every part was answered. It returns one ID list per request.
+Unknown IDs, duplicates, wrong question/test kinds and
 malformed responses fail the encounter. A valid empty selection returns exactly
 `not documented`; this is not a negative clinical finding. An empty selection can
 also be a retrieval error even when relevant evidence exists in the catalog;
 selection completeness needs audit. Code renders selected
 excerpts with their event and source-record days. The verifier reconstructs each
 result before making a paid judge call.
+
+Version 1 saw only labels and aliases. Its frozen task directories and completed
+artifacts remain valid historical records; do not resume a v1 task with v2 source
+or overwrite its results. Compare separate runs with identical case hashes,
+diagnosis/judge code and settings. Fixed-request selector replay isolates retrieval
+changes; an end-to-end rerun can ask different questions and is not by itself a
+controlled accuracy comparison. Scripted tests verify boundaries, while the
+authored fictional retrieval fixture provides expected ID sets for live checks.
 
 The gatekeeper container holds permitted extracts but no `full_text`,
 `final_diagnosis` or reference metadata. Diagnosis sees neither catalog nor source

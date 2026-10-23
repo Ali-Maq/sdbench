@@ -1,0 +1,766 @@
+{
+  "schema_version": 1,
+  "provenance": "Authored fictional records and independently specified retrieval expectations; no patient data or external source.",
+  "evaluation_note": "Expected ID sets test semantic retrieval in a live selector evaluation. Scripted backend tests validate only payload boundaries and exact rendering, not model retrieval accuracy. Partial requests are explicitly identified here; an ID-only response cannot certify complete coverage.",
+  "cases": [
+    {
+      "id": "symptom_content",
+      "rationale": "A broad ROS heading cannot supply absent symptoms. Explicit negatives are evidence; a partly answered compound question is not a fully answered question.",
+      "evidence": [
+        {
+          "id": "ros",
+          "kind": "question",
+          "label": "Review of systems",
+          "aliases": [
+            "ROS",
+            "symptom review"
+          ],
+          "text": "Reports intermittent itching and wears corrective lenses.",
+          "source_id": "fictional-source-ros",
+          "source_sha256": "d9dd12058e2635bef774a6252f58cdd105a7ef5a173e9b665aa58bb3645463fa",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "fever",
+          "kind": "question",
+          "label": "Temperature symptoms",
+          "aliases": [
+            "fever history"
+          ],
+          "text": "The patient specifically denies fever.",
+          "source_id": "fictional-source-fever",
+          "source_sha256": "13a658c7820225e0009119bac7a6216e2ba9a88d7751c3da827bc2b342dc8e14",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "appetite",
+          "kind": "question",
+          "label": "Diet history",
+          "aliases": [
+            "appetite"
+          ],
+          "text": "Appetite has been unchanged during the past week.",
+          "source_id": "fictional-source-appetite",
+          "source_sha256": "bc154fa8108ea79960ace1ff96084ef7960e0c66ece4361f5e2ed6c84d3aed6a",
+          "recorded_day": 2,
+          "event_day": 1
+        }
+      ],
+      "requests": [
+        {
+          "request": "Question for the patient: Have you had night sweats?",
+          "expected_ids": [],
+          "missing_components": [
+            "night sweats"
+          ],
+          "reason": "No excerpt addresses night sweats."
+        },
+        {
+          "request": "Question for the patient: Are you coughing?",
+          "expected_ids": [],
+          "missing_components": [
+            "cough"
+          ],
+          "reason": "A general ROS title does not document cough."
+        },
+        {
+          "request": "Question for the patient: Any pain when urinating?",
+          "expected_ids": [],
+          "missing_components": [
+            "pain when urinating"
+          ],
+          "reason": "No excerpt addresses urinary symptoms."
+        },
+        {
+          "request": "Question for the patient: Have you had numbness or weakness?",
+          "expected_ids": [],
+          "missing_components": [
+            "numbness",
+            "weakness"
+          ],
+          "reason": "No excerpt addresses these neurologic symptoms."
+        },
+        {
+          "request": "Question for the patient: Have you had any fever?",
+          "expected_ids": [
+            "fever"
+          ],
+          "missing_components": [],
+          "reason": "An explicit denial directly answers the question."
+        },
+        {
+          "request": "Question for the patient: Any fever or unintentional weight loss?",
+          "expected_ids": [
+            "fever"
+          ],
+          "missing_components": [
+            "unintentional weight loss"
+          ],
+          "reason": "Return the documented fever denial, without substituting appetite for weight loss."
+        }
+      ]
+    },
+    {
+      "id": "partial_inflammation_tests",
+      "rationale": "Retrieve the documented high-sensitivity assay when CRP is requested, preserving its assay name; do not imply ESR was measured.",
+      "evidence": [
+        {
+          "id": "hscrp",
+          "kind": "test",
+          "label": "High sensitivity C-reactive protein",
+          "aliases": [
+            "hs-CRP",
+            "C-reactive protein, high sensitivity"
+          ],
+          "text": "High-sensitivity C-reactive protein: 2.4 mg/L.",
+          "source_id": "fictional-source-hscrp",
+          "source_sha256": "9f3a49b9545e72dab80abc6a5a39afbf50780d68fb1aaeae5d9171b21844cd84",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "creatinine",
+          "kind": "test",
+          "label": "Serum creatinine",
+          "aliases": [
+            "creatinine"
+          ],
+          "text": "Serum creatinine: 0.82 mg/dL.",
+          "source_id": "fictional-source-creatinine",
+          "source_sha256": "0339692f81a2ca59f24f1a593722a8620b27177de0493616e385aa4c2ca8f5c9",
+          "recorded_day": 2,
+          "event_day": 1
+        }
+      ],
+      "requests": [
+        {
+          "request": "Test to order: ESR and CRP",
+          "expected_ids": [
+            "hscrp"
+          ],
+          "missing_components": [
+            "ESR"
+          ],
+          "reason": "Only the CRP component is represented, by an explicitly named high-sensitivity assay."
+        },
+        {
+          "request": "Test to order: C-reactive protein",
+          "expected_ids": [
+            "hscrp"
+          ],
+          "missing_components": [],
+          "reason": "Return the available recorded assay without renaming it."
+        },
+        {
+          "request": "Test to order: Erythrocyte sedimentation rate",
+          "expected_ids": [],
+          "missing_components": [
+            "ESR"
+          ],
+          "reason": "CRP is not an ESR measurement."
+        }
+      ]
+    },
+    {
+      "id": "complete_cbc_and_narrow_analytes",
+      "rationale": "A complete panel request includes every recorded constituent, including normal and zero values; a narrow analyte request must not expand to the panel.",
+      "evidence": [
+        {
+          "id": "wbc",
+          "kind": "test",
+          "label": "White blood cell count",
+          "aliases": [
+            "WBC",
+            "leukocyte count"
+          ],
+          "text": "WBC: 6.8 x10^9/L.",
+          "source_id": "fictional-source-wbc",
+          "source_sha256": "580fea7d414a84b3e6ff4eae2d86950d2c1f8c94920f9a93f7a8ad5a96de05a3",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "rbc",
+          "kind": "test",
+          "label": "Red blood cell count",
+          "aliases": [
+            "RBC",
+            "erythrocyte count"
+          ],
+          "text": "RBC: 4.1 x10^12/L.",
+          "source_id": "fictional-source-rbc",
+          "source_sha256": "5c57cc1d13e725bca11d709ac9f1028fe4b3adf8ea1c064f1693b5d12af9b4e2",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "hemoglobin",
+          "kind": "test",
+          "label": "Hemoglobin",
+          "aliases": [
+            "Hb",
+            "Hgb"
+          ],
+          "text": "Hemoglobin: 10.8 g/dL.",
+          "source_id": "fictional-source-hemoglobin",
+          "source_sha256": "5c2f35035beed0b138823937c783c6b93b306293ac13343bbdaece765af71bb6",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "hematocrit",
+          "kind": "test",
+          "label": "Hematocrit",
+          "aliases": [
+            "Hct"
+          ],
+          "text": "Hematocrit: 33.1%.",
+          "source_id": "fictional-source-hematocrit",
+          "source_sha256": "14b8dae162c09924823cae95e9cc7dffbecca6f2f2694727c92962cb1049d267",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "mcv",
+          "kind": "test",
+          "label": "Mean corpuscular volume",
+          "aliases": [
+            "MCV"
+          ],
+          "text": "MCV: 80.7 fL.",
+          "source_id": "fictional-source-mcv",
+          "source_sha256": "1884c779c649fda46f29d5a62a106b570ef33f9a9251659de6650a91ca1ab356",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "mch",
+          "kind": "test",
+          "label": "Mean corpuscular hemoglobin",
+          "aliases": [
+            "MCH"
+          ],
+          "text": "MCH: 26.3 pg.",
+          "source_id": "fictional-source-mch",
+          "source_sha256": "960a16528c30550e84d651ae53230e1ae29a0d1a459f7d4628f0e237a26de0f0",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "mchc",
+          "kind": "test",
+          "label": "Mean corpuscular hemoglobin concentration",
+          "aliases": [
+            "MCHC"
+          ],
+          "text": "MCHC: 32.6 g/dL.",
+          "source_id": "fictional-source-mchc",
+          "source_sha256": "ba99b6c39e849cfe1e41be2d8f77cb522454084a7f9913c9750db32ecf18a42b",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "rdw",
+          "kind": "test",
+          "label": "Red cell distribution width",
+          "aliases": [
+            "RDW"
+          ],
+          "text": "RDW: 16.2%.",
+          "source_id": "fictional-source-rdw",
+          "source_sha256": "67a56979a2719bad5aad2030a9287b8e87f42ddfb3755dba5b785d12a185e56e",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "platelets",
+          "kind": "test",
+          "label": "Platelet count",
+          "aliases": [
+            "platelets"
+          ],
+          "text": "Platelets: 240 x10^9/L.",
+          "source_id": "fictional-source-platelets",
+          "source_sha256": "3533bcb3cfa1f2a887bbbdb1676a66a0f1fe0166ea33d97965f4263e0b622b21",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "mpv",
+          "kind": "test",
+          "label": "Mean platelet volume",
+          "aliases": [
+            "MPV"
+          ],
+          "text": "MPV: 9.4 fL.",
+          "source_id": "fictional-source-mpv",
+          "source_sha256": "859b167852d9386f2945555d65eee3258dfea47dd79e477eeda5bdf4f5b8324b",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "neutrophils_percent",
+          "kind": "test",
+          "label": "Neutrophils percentage",
+          "aliases": [
+            "neutrophils, percent"
+          ],
+          "text": "Neutrophils: 60.0%.",
+          "source_id": "fictional-source-neutrophils_percent",
+          "source_sha256": "1a02443957ad88bb8cf0e3a4ea4f78b3afc9c484061f0c53e3fe44cecb646c51",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "lymphocytes_percent",
+          "kind": "test",
+          "label": "Lymphocytes percentage",
+          "aliases": [
+            "lymphocytes, percent"
+          ],
+          "text": "Lymphocytes: 30.0%.",
+          "source_id": "fictional-source-lymphocytes_percent",
+          "source_sha256": "c1bd20058041483fb5f77e247f519151bbc1335a2a33a8d89b23d13787fc5e34",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "monocytes_percent",
+          "kind": "test",
+          "label": "Monocytes percentage",
+          "aliases": [
+            "monocytes, percent"
+          ],
+          "text": "Monocytes: 7.0%.",
+          "source_id": "fictional-source-monocytes_percent",
+          "source_sha256": "5e4fea2b6f5d668de137727b4583f4513dc1d6803b6e62c1e157ad08a843cde4",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "eosinophils_percent",
+          "kind": "test",
+          "label": "Eosinophils percentage",
+          "aliases": [
+            "eosinophils, percent"
+          ],
+          "text": "Eosinophils: 3.0%.",
+          "source_id": "fictional-source-eosinophils_percent",
+          "source_sha256": "2863fda8590ddc1c6b073154ecc4df218194f5941998abd3345d90ab5150b8f7",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "basophils_percent",
+          "kind": "test",
+          "label": "Basophils percentage",
+          "aliases": [
+            "basophils, percent"
+          ],
+          "text": "Basophils: 0.0%.",
+          "source_id": "fictional-source-basophils_percent",
+          "source_sha256": "c2218ed20372831cdff5a6ec197cc1c991f03e12e5c42a27dc55fe10e8695926",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "neutrophils_absolute",
+          "kind": "test",
+          "label": "Absolute neutrophil count",
+          "aliases": [
+            "ANC"
+          ],
+          "text": "Absolute neutrophils: 4.08 x10^9/L.",
+          "source_id": "fictional-source-neutrophils_absolute",
+          "source_sha256": "67c66c43f71344ba7f3c6f4b5890e2a429b7def01f957f3a4722f130f5ba6169",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "lymphocytes_absolute",
+          "kind": "test",
+          "label": "Absolute lymphocyte count",
+          "aliases": [
+            "ALC"
+          ],
+          "text": "Absolute lymphocytes: 2.04 x10^9/L.",
+          "source_id": "fictional-source-lymphocytes_absolute",
+          "source_sha256": "1ca58a89faad1d6d71660bcdfd1e015e776a5c840f5a42ef795d0132e4dfbcc7",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "monocytes_absolute",
+          "kind": "test",
+          "label": "Absolute monocyte count",
+          "aliases": [
+            "monocytes, absolute"
+          ],
+          "text": "Absolute monocytes: 0.48 x10^9/L.",
+          "source_id": "fictional-source-monocytes_absolute",
+          "source_sha256": "8d123d1433ebb3f4aba18f2edecc481af95c9a94c7e60b660b58ce96ed1421f0",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "eosinophils_absolute",
+          "kind": "test",
+          "label": "Absolute eosinophil count",
+          "aliases": [
+            "eosinophils, absolute"
+          ],
+          "text": "Absolute eosinophils: 0.20 x10^9/L.",
+          "source_id": "fictional-source-eosinophils_absolute",
+          "source_sha256": "02863077c9642a82ff3d6386649b328bce7b6f9e83697149a0921969172fcb76",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "basophils_absolute",
+          "kind": "test",
+          "label": "Absolute basophil count",
+          "aliases": [
+            "basophils, absolute"
+          ],
+          "text": "Absolute basophils: 0.00 x10^9/L.",
+          "source_id": "fictional-source-basophils_absolute",
+          "source_sha256": "f7adea3d8c3b31f74d5e6e1020a41c11c49f013099be2fa69ef405d2c634adc4",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "sodium",
+          "kind": "test",
+          "label": "Serum sodium",
+          "aliases": [
+            "sodium"
+          ],
+          "text": "Sodium: 140 mmol/L.",
+          "source_id": "fictional-source-sodium",
+          "source_sha256": "805f9f17cc2210e750c5ce08c9d96a362851e4cf23bfceca5f2e283002769fb5",
+          "recorded_day": 2,
+          "event_day": 1
+        }
+      ],
+      "requests": [
+        {
+          "request": "Test to order: Complete blood count with differential",
+          "expected_ids": [
+            "wbc",
+            "rbc",
+            "hemoglobin",
+            "hematocrit",
+            "mcv",
+            "mch",
+            "mchc",
+            "rdw",
+            "platelets",
+            "mpv",
+            "neutrophils_percent",
+            "lymphocytes_percent",
+            "monocytes_percent",
+            "eosinophils_percent",
+            "basophils_percent",
+            "neutrophils_absolute",
+            "lymphocytes_absolute",
+            "monocytes_absolute",
+            "eosinophils_absolute",
+            "basophils_absolute"
+          ],
+          "missing_components": [],
+          "reason": "Return all documented CBC constituents, indices, percentages and absolute differential counts."
+        },
+        {
+          "request": "Test to order: Hemoglobin only",
+          "expected_ids": [
+            "hemoglobin"
+          ],
+          "missing_components": [],
+          "reason": "Only the requested analyte is relevant."
+        },
+        {
+          "request": "Test to order: Absolute neutrophil count",
+          "expected_ids": [
+            "neutrophils_absolute"
+          ],
+          "missing_components": [],
+          "reason": "The percentage is a distinct measurement; do not add it or the remaining CBC."
+        }
+      ]
+    },
+    {
+      "id": "protein_panel_and_interpretation",
+      "rationale": "Return the full requested protein panel. Preserve a zero spike and both the structured placeholder and actual interpretation without treating the placeholder as a negative.",
+      "evidence": [
+        {
+          "id": "total_protein",
+          "kind": "test",
+          "label": "Serum total protein",
+          "aliases": [
+            "protein, total"
+          ],
+          "text": "Total protein: 7.2 g/dL.",
+          "source_id": "fictional-source-total_protein",
+          "source_sha256": "e9228bdb673f2c5343ae7b0c197405428905af68f9b48ed2f22b654caa816232",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "albumin",
+          "kind": "test",
+          "label": "SPEP albumin fraction",
+          "aliases": [
+            "albumin fraction"
+          ],
+          "text": "SPEP albumin: 3.9 g/dL.",
+          "source_id": "fictional-source-albumin",
+          "source_sha256": "0dca5a3b4c215a993390894ad3e3f78407064d087067d663075ea901b07aa625",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "alpha1",
+          "kind": "test",
+          "label": "SPEP alpha-1 globulin",
+          "aliases": [
+            "alpha-1 fraction"
+          ],
+          "text": "Alpha-1 globulin: 0.2 g/dL.",
+          "source_id": "fictional-source-alpha1",
+          "source_sha256": "48f5a5ba62aecdbdcf8d9301f3cf01c940047a8f13ef57a60854930ac8d7e9a7",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "alpha2",
+          "kind": "test",
+          "label": "SPEP alpha-2 globulin",
+          "aliases": [
+            "alpha-2 fraction"
+          ],
+          "text": "Alpha-2 globulin: 0.8 g/dL.",
+          "source_id": "fictional-source-alpha2",
+          "source_sha256": "549700aae07c88ccefcb715b6313ddfc3e14d4bc0695de79c197811649e1d6d4",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "beta1",
+          "kind": "test",
+          "label": "SPEP beta-1 globulin",
+          "aliases": [
+            "beta-1 fraction"
+          ],
+          "text": "Beta-1 globulin: 0.5 g/dL.",
+          "source_id": "fictional-source-beta1",
+          "source_sha256": "add7c5fed1e42169c1a1ccfa322059f1f8f612d685a7be6ace69dc275c4ce5cf",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "beta2",
+          "kind": "test",
+          "label": "SPEP beta-2 globulin",
+          "aliases": [
+            "beta-2 fraction"
+          ],
+          "text": "Beta-2 globulin: 0.3 g/dL.",
+          "source_id": "fictional-source-beta2",
+          "source_sha256": "bd81b066f8819990d47f377c22e0f5b659c14e90a120222da9eea9187454ff3d",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "gamma",
+          "kind": "test",
+          "label": "SPEP gamma globulin",
+          "aliases": [
+            "gamma fraction"
+          ],
+          "text": "Gamma globulin: 1.5 g/dL.",
+          "source_id": "fictional-source-gamma",
+          "source_sha256": "7949ccf7bcc9b6d9ade189d99ba79cbf969feba57cf809381635a0957a4e545a",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "mspike",
+          "kind": "test",
+          "label": "SPEP monoclonal spike",
+          "aliases": [
+            "M-spike"
+          ],
+          "text": "M-spike: 0.00 g/dL.",
+          "source_id": "fictional-source-mspike",
+          "source_sha256": "418136ed19abb076574078a5fbd2e5827679e83995fc0cb97687a900aea0f693",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "ife_placeholder",
+          "kind": "test",
+          "label": "Serum immunofixation laboratory field",
+          "aliases": [
+            "serum IFE laboratory field"
+          ],
+          "text": "Serum immunofixation: Comment.",
+          "source_id": "fictional-source-ife_placeholder",
+          "source_sha256": "2bcd0a501651401c2ddb8f47431e6d4c5b603b005faa7b986b2f726c1e82a8cc",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "ife_interpretation",
+          "kind": "test",
+          "label": "Serum immunofixation interpretation",
+          "aliases": [
+            "serum IFE interpretation"
+          ],
+          "text": "Serum immunofixation interpretation: a faint IgG-lambda band is present.",
+          "source_id": "fictional-source-ife_interpretation",
+          "source_sha256": "539910bbc66be2ce3a3548337d909e62efa3a6c1d611a05d3e2951c501f458b8",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "urine_albumin",
+          "kind": "test",
+          "label": "Urine albumin concentration",
+          "aliases": [
+            "urine albumin"
+          ],
+          "text": "Urine albumin: 8 mg/L.",
+          "source_id": "fictional-source-urine_albumin",
+          "source_sha256": "4ed757b2dcf547e73f4c25c878f7473e3d5f222dafe540a053e26514004bdfcc",
+          "recorded_day": 2,
+          "event_day": 1
+        }
+      ],
+      "requests": [
+        {
+          "request": "Test to order: Serum protein electrophoresis with immunofixation",
+          "expected_ids": [
+            "total_protein",
+            "albumin",
+            "alpha1",
+            "alpha2",
+            "beta1",
+            "beta2",
+            "gamma",
+            "mspike",
+            "ife_placeholder",
+            "ife_interpretation"
+          ],
+          "missing_components": [],
+          "reason": "Return all recorded fractions, total protein, spike, and available immunofixation records."
+        },
+        {
+          "request": "Test to order: SPEP M-spike quantity only",
+          "expected_ids": [
+            "mspike"
+          ],
+          "missing_components": [],
+          "reason": "A narrow quantity request does not release the remaining fractions or IFE."
+        },
+        {
+          "request": "Test to order: Serum immunofixation",
+          "expected_ids": [
+            "ife_placeholder",
+            "ife_interpretation"
+          ],
+          "missing_components": [],
+          "reason": "The placeholder does not replace the separate recorded interpretation."
+        },
+        {
+          "request": "Test to order: Urine protein electrophoresis",
+          "expected_ids": [],
+          "missing_components": [
+            "urine protein electrophoresis"
+          ],
+          "reason": "Urine albumin concentration is not an electrophoresis report."
+        }
+      ]
+    },
+    {
+      "id": "missing_and_near_neighbor_tests",
+      "rationale": "An available test with a similar name or anatomical region cannot substitute for the requested unrecorded test.",
+      "evidence": [
+        {
+          "id": "creatinine",
+          "kind": "test",
+          "label": "Serum creatinine",
+          "aliases": [
+            "creatinine"
+          ],
+          "text": "Serum creatinine: 0.74 mg/dL.",
+          "source_id": "fictional-source-creatinine",
+          "source_sha256": "a8cb11493a7f21000dbc8068c24b1659718d81ff2de4bf4077f73188a0d3c273",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "chest_xray",
+          "kind": "test",
+          "label": "Chest radiograph",
+          "aliases": [
+            "chest X-ray"
+          ],
+          "text": "Chest radiograph: no focal airspace opacity.",
+          "source_id": "fictional-source-chest_xray",
+          "source_sha256": "a4d8c10dcf096e51af9c38279a9e7eb594dc0e150856e0f497b88e2155193559",
+          "recorded_day": 2,
+          "event_day": 1
+        },
+        {
+          "id": "kidney_ultrasound",
+          "kind": "test",
+          "label": "Renal ultrasound",
+          "aliases": [
+            "kidney ultrasound"
+          ],
+          "text": "Renal ultrasound: no hydronephrosis.",
+          "source_id": "fictional-source-kidney_ultrasound",
+          "source_sha256": "420bcdb209e98a729973451b0539700730cf7516309f050e4b72a002cf600b20",
+          "recorded_day": 2,
+          "event_day": 1
+        }
+      ],
+      "requests": [
+        {
+          "request": "Test to order: Creatine kinase",
+          "expected_ids": [],
+          "missing_components": [
+            "creatine kinase"
+          ],
+          "reason": "Creatinine is not creatine kinase."
+        },
+        {
+          "request": "Test to order: Chest CT",
+          "expected_ids": [],
+          "missing_components": [
+            "chest CT"
+          ],
+          "reason": "A radiograph does not answer a CT request."
+        },
+        {
+          "request": "Test to order: Brain MRI",
+          "expected_ids": [],
+          "missing_components": [
+            "brain MRI"
+          ],
+          "reason": "No relevant study is in the catalog."
+        },
+        {
+          "request": "Test to order: Renal ultrasound",
+          "expected_ids": [
+            "kidney_ultrasound"
+          ],
+          "missing_components": [],
+          "reason": "An exact available test still retrieves normally."
+        }
+      ]
+    }
+  ]
+}

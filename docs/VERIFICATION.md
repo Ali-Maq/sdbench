@@ -3,7 +3,63 @@
 Checks below cover [cleanup #2](https://github.com/Ali-Maq/sdbench/issues/2)
 and its costing, routing and resume follow-ups.
 They establish software execution, not clinical validity or equivalence to MAI-DxO.
-**No real patient was evaluated.**
+The public checks below use fictional cases. Private evaluation records and
+their clinical outcomes are not redistributed in this repository.
+
+## Evidence-aware retrieval verification (2026-10-23)
+
+`recorded-id-selector-v2` supplies the selector with allowed excerpt text and
+relative dates, so it can check what a record actually says. The diagnostic
+agent, judge and deterministic observation rendering are unchanged. The
+[fictional retrieval fixture](../tests/fixtures/recorded_retrieval_cases.json)
+contains five catalogs, 40 evidence entries and 20 requests with independently
+specified expected ID sets. It covers unrelated ROS headings, explicit negatives,
+partial compound requests, hsCRP versus ESR, full CBC/differential and SPEP/IFE
+panels, narrow analytes, placeholders, zero values and absent or similar-name tests.
+
+| Check | Observed result |
+| --- | --- |
+| Python 3.12, all extras | 253 tests passed, no skips |
+| Python 3.11, compatible extras | 245 passed; eight expected Harbor-only skips |
+| Scripted retrieval boundary tests | Four tests pass: actual excerpts/dates reach the selector, reference and expected answers do not; chosen IDs render exact sources, including partial answers and missingness |
+| Live selector, final prompt | 60/60 expected-ID-set matches: 20 requests repeated three times, batched into 15 provider calls |
+| Live settings | Azure Responses API; deployment `sdbench-gpt-5.4-dz`; reasoning effort `low`; 4,096 maximum completion tokens; selector only, no diagnostic or judge calls |
+| Final live usage | 17,595 input + 2,227 output = 19,822 tokens; API dollar charges unknown |
+| Final native Harbor run, fictional episode | Completed with the same v2 source; three investigation rounds, 33 requests, four recorded responses and 29 `not documented` responses; exact-source validation passed and the judge scored the submitted diagnosis 5/5 |
+| Final Harbor usage | Eight calls across all roles; 9,643 input + 1,745 output = 11,388 tokens; API dollar charges unknown |
+
+The first live attempt passed 54/60 checks: it omitted the structured IFE
+placeholder when the separate interpretation was available. That attempt is
+preserved. The prompt was clarified to retain requested placeholder records
+without treating them as negative results, then the same fixture passed 60/60.
+This is a development regression set used to refine the prompt, **not a held-out
+accuracy estimate**. Three repetitions are not 60 independent clinical cases.
+
+Reproduce the offline checks from the repository root:
+
+```bash
+uv sync --python 3.12 --all-extras
+uv run --no-sync python -m unittest discover -s tests -p 'test_recorded_retrieval.py' -v
+uv run --no-sync python -m unittest discover -s tests -v
+```
+
+Those tests script the returned IDs and validate the interface; they cannot
+establish model retrieval accuracy. The live check instead passed each catalog
+through `RecordedTestRunner` with `MeteredBackend`, submitted its requests in one
+batch, and compared returned ID sets with the fixture after the call. Expected
+IDs never entered model input. The one-off live driver and its raw ledgers are
+local audit artifacts, not a published CLI. The final `live-selector-check`
+settings and results record source hash
+`85c61ebde7c2ce6daeff5340198e23caf95c552b93fe0aca6f5ae239ac58c03d`
+and fixture SHA-256
+`3ec81b4c940532ddbdc3d8a7e0bd5049fce5fca80115789490f0f9db96346b34`.
+The retained earlier attempt is `live-selector-attempt1`.
+The final native job is `fictional-harbor-final`, using the same frozen source
+hash. Its score checks execution on an authored fixture, not clinical accuracy.
+
+These checks do not certify retrieval completeness on another chart or quantify
+diagnostic accuracy. An ID-only partial answer still does not enumerate each
+missing component. No patient outcome is reported in this public verification.
 
 ## Recorded-only workflow verification (2026-10-23)
 

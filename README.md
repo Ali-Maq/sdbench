@@ -64,13 +64,14 @@ cost can leave Harbor's Pareto plot empty. Use time, or tokens when usage was re
 | --- | --- |
 | Released baseline through Harbor | Scripted transport parity and mock container checks; see verification |
 | Paired `o4-mini` / `gpt-5` gatekeeper schedule | Direct OpenAI; live comparison not run |
-| Azure Responses and refreshed credentials | Separate single-model fictional smoke route |
+| Azure Responses and refreshed credentials | Single-episode smoke and recorded routes; not the paired analyzer |
 | Native trajectory, clinical report, usage ledger | Stock-mode model flags alone are not verified source evidence |
 | Recorded-only private episodes | Gatekeeper selects IDs; code returns stored excerpts, with source and timing checks before grading |
 | Optional Langfuse export | Post-run metadata; no clinical text or reconstructed execution waterfall |
 
 The planned study uses diagnostic episodes from longitudinal myeloma records.
-**No real patient has been evaluated.** A separate `prepare-recorded` command
+Private cases and their evaluation outcomes are kept outside this repository;
+the published verification uses fictional fixtures. A separate `prepare-recorded` command
 accepts a frozen private episode with a brief opening, permitted excerpts and
 judge-only reference. See the [recorded-only workflow](docs/RECORDED_EPISODES.md).
 One-shot comparisons and episode-specific evaluators remain unimplemented.

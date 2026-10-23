@@ -153,8 +153,14 @@ class RecordedWorkflowTests(unittest.TestCase):
             serialized = json.dumps(call["messages"])
             self.assertNotIn(REFERENCE_MARKER, serialized)
             self.assertNotIn(self.case["final_diagnosis"], serialized)
-            for evidence in self.case["recorded_episode"]["evidence"]:
-                self.assertNotIn(evidence["text"], serialized)
+            catalog = json.loads(call["messages"][-1]["content"])["catalog"]
+            self.assertEqual(catalog, [
+                {key: evidence[key] for key in (
+                    "id", "kind", "label", "aliases", "text", "event_day", "recorded_day"
+                )} for evidence in self.case["recorded_episode"]["evidence"]
+            ])
+            self.assertNotIn("source_sha256", serialized)
+            self.assertNotIn("reference_source_ids", serialized)
         judge_calls = json_lines(self.root / "verifier/raw_calls.jsonl")
         self.assertIn(REFERENCE_MARKER, json.dumps(judge_calls))
 
