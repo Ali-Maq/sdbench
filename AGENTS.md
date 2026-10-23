@@ -26,8 +26,10 @@ The user does not need to name the runbook explicitly.
   - `gatekeeper.py`, `judge.py`, `case_data.py`, `config.py`, `models.py`, `reporting.py`.
   - `costing/` — test-cost estimation.
   - `prompts/` — versioned gatekeeper/judge prompt templates (`.yaml`).
-- `data/` — dataset directory (`SDBENCH_DATA_PATH`, default `./data`). Only dataset-access
-  `README.md`s are committed; the datasets themselves are not redistributed (see those READMEs).
+  - `isolation/` — authenticated role services, provider accounting and paired analysis.
+  - `harbor_integration/` — task generation, runner adapter, trajectories and optional tracing.
+- `data/` — dataset directory (`SDBENCH_DATA_PATH`, default `./data`). Five fictional
+  cases and their Markdown sources are committed. Restricted datasets are not redistributed.
 
 ## Setup
 
@@ -37,8 +39,9 @@ This project uses [uv](https://docs.astral.sh/uv/).
 uv sync
 ```
 
-Provide model-provider credentials via a `.env` file (loaded automatically). See the
-"Model providers & environment variables" table in `README.md`.
+Stock CLI commands load model-provider credentials from `.env`. The Harbor
+commands require exported environment variables instead. See `RUN_SDBENCH.md`
+for stock providers and `docs/HARBOR_EXPERIMENT.md` for the adapter.
 
 ## Common commands
 
@@ -69,6 +72,7 @@ uv run python -m sdbench.cli.harness --help
 - The case data formats (single-file `dataset.json`/`dataset.csv` and the per-case layout) are
   documented in the `sdbench/case_data.py` module docstring.
 - Optional features are isolated behind dependency extras and imported lazily, so the package runs
-  on a minimal core (`openai`, `python-dotenv`, `pyyaml`, `tqdm`). Extras: `cpt_costing` (CPT-code
-  costing) and `azure` (Blob Storage upload + CosmosDB costing cache). Install one with
+  on a minimal core (`openai`, `python-dotenv`, `pyyaml`, `tqdm`, `numpy`). Extras: `cpt_costing` (CPT-code
+  costing), `azure` (Blob Storage upload + CosmosDB costing cache), `harbor` (Python
+  3.12 runner), and `tracing` (host-side Langfuse export; full clinical mode is local-only and opt-in). Install one with
   `uv sync --extra <name>`, or all with `uv sync --all-extras`.

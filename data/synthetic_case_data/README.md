@@ -22,7 +22,8 @@ out of the box without access to any restricted clinical data.
 
 ## Contents
 
-Each case is provided here as both Markdown (`.md`) and PDF (`.pdf`):
+Each case has an editable Markdown (`.md`) source. Runtime JSON is linked below;
+redundant PDF renderings are not kept in this fork.
 
 | File | Case |
 | --- | --- |

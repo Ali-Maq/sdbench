@@ -103,7 +103,8 @@ def main():
     # Final summary
     print("=== FINAL SUMMARY ===")
     total_tests = sum(r.get("tests_run", 0) for r in all_results)
-    total_turns = sum(r.get("turns_used", 0) for r in all_results)
+    # Per-batch snapshots are cumulative; the runner also counts failed turns.
+    total_turns = runner.num_rounds
     successful_batches = sum(1 for r in all_results if "error" not in r)
 
     print(f"Total batches: {len(all_results)}")

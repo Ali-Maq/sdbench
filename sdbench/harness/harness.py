@@ -16,7 +16,9 @@ from sdbench import agents, case_data, gatekeeper, judge, models
 from sdbench.azure_storage import validate_azure_access, write_output_file
 from sdbench.config import AgentConfig, CostingConfig, HarnessConfig, SDBenchConfig
 from sdbench.costing.costing import estimate_costs
+from sdbench.costing.cost_types import cost_summary
 from sdbench.models import ModelCreateChatCompletion
+from sdbench.results import is_completed_result
 
 __all__ = [
     "run_case",
@@ -95,16 +97,40 @@ def run_case(
     results["requested_tests_only"] = test_runner.requested_tests_only
     results["num_test_rounds"] = test_runner.num_test_rounds
 
+    results["result_status"] = "success"
     _compute_costs(case, results, config)
 
     return results
 
 
 def _compute_costs(case: case_data.CaseData, result: dict[str, Any], config: SDBenchConfig):
+    # A failed pricing stage must not discard a completed diagnostic evaluation.
+    # Agent and historical workups are independent and may fail for different reasons.
     if config.compute_costs:
-        compute_agent_costs(result, CostingConfig.from_sdbench_config(config))
+        try:
+            compute_agent_costs(result, CostingConfig.from_sdbench_config(config))
+        except Exception as error:
+            result[f"cost_analysis_{config.costing_method}"] = _failed_cost_analysis(config, error)
     if config.compute_actual_workup_costs:
-        compute_actual_workup_costs(case, result, CostingConfig.from_sdbench_config(config))
+        try:
+            compute_actual_workup_costs(case, result, CostingConfig.from_sdbench_config(config))
+        except Exception as error:
+            result[f"cost_analysis_actual_workup_{config.costing_method}"] = _failed_cost_analysis(config, error)
+
+
+def _failed_cost_analysis(config: SDBenchConfig, error: Exception) -> dict[str, Any]:
+    """Record pricing failure without inventing prices or repairing source inputs."""
+    summary = cost_summary(None)
+    summary["totals"] = {key: None for key in summary["totals"]}
+    return {
+        "method": config.costing_method,
+        "error_type": type(error).__name__,
+        "error_message": str(error),
+        "raw_analysis": f"Clinical pricing failed: {error}",
+        "total_unique_tests": None,
+        "cost_details": [],
+        **summary,
+    }
 
 
 def compute_agent_costs(result: dict[str, Any], config: CostingConfig):
@@ -179,7 +205,7 @@ def _parse_case_ids(raw_arg: list[str] | str) -> list[str]:
     else:
         # Single value
         if ',' in str(raw_arg):
-            return list([piece.strip() for piece in str(raw_arg).split(',') if piece.strip()])
+            return [piece.strip() for piece in str(raw_arg).split(',') if piece.strip()]
         else:
             return [raw_arg.strip()]
 
@@ -192,6 +218,7 @@ def _save_result_to_json(result: dict[str, Any], case_id: str, json_dir: str, co
     # Add metadata to the result
     # Note: All the config is already in the run_config.json file
     result_data: dict[str, Any] = {
+        **result,
         "timestamp": datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
         "case_id": case_id,
         "dataset": case['dataset'],
@@ -203,7 +230,6 @@ def _save_result_to_json(result: dict[str, Any], case_id: str, json_dir: str, co
         "case_set": config.case_set,
         "max_turns": config.sdbench.max_turns,
         "k": k,
-        **result  # Include all the original result data
     }
 
     json_content = json.dumps(result_data, indent=2)
@@ -246,8 +272,10 @@ def _process_single_case(k: int,
 
     except Exception as e:
         error_result: dict[str, Any] = {
-
-            "model_diagnosis": str(e),
+            "result_status": "failed",
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "model_diagnosis": "",
             "correct": False,
             "k": k,
         }
@@ -270,7 +298,6 @@ def scan_completed_cases(resume_dir: str) -> set[tuple[str, int]]:
         set: Set of (case_id, k) tuples that have been completed successfully
     """
     completed: set[tuple[str, int]] = set()
-    error_cases: set[tuple[str, int]] = set()
 
     # Find the json subdirectory
     json_dir = os.path.join(resume_dir, "json")
@@ -279,13 +306,13 @@ def scan_completed_cases(resume_dir: str) -> set[tuple[str, int]]:
         return completed
 
     # Pattern to match: case_k{k}_{case_id}.json
-    pattern = re.compile(r'case_k(\d+)_(\d+)\.json')
+    pattern = re.compile(r'case_k(\d+)_(.+)\.json')
 
     json_files = glob.glob(os.path.join(json_dir, "case_k*.json"))
 
     for json_file in json_files:
         filename = os.path.basename(json_file)
-        match = pattern.match(filename)
+        match = pattern.fullmatch(filename)
 
         if match:
             k = int(match.group(1))
@@ -296,25 +323,17 @@ def scan_completed_cases(resume_dir: str) -> set[tuple[str, int]]:
                 with open(json_file, 'r') as f:
                     data = json.load(f)
 
-                    # Check if it has essential fields indicating completion
-                    if 'case_id' in data and 'correct' in data:
-                        # Check if the result contains an error
-                        model_diagnosis = data.get('model_diagnosis', '')
-                        has_error = (
-                            isinstance(model_diagnosis, str) and
-                            ('Error code:' in model_diagnosis or
-                             'error' in model_diagnosis.lower() or
-                             'exception' in model_diagnosis.lower())
-                        )
-
-                        if has_error:
-                            error_cases.add((case_id, k))
-                            print(f"Warning: Error found in {json_file}, will be re-run")
-                        else:
-                            completed.add((case_id, k))
-                    else:
-                        print(f"Warning: Incomplete result file {json_file}, will be re-run")
-            except (json.JSONDecodeError, IOError) as e:
+                identity_matches = (
+                    isinstance(data, dict)
+                    and data.get("case_id") == case_id
+                    and type(data.get("k")) is int
+                    and data["k"] == k
+                )
+                if identity_matches and is_completed_result(data):
+                    completed.add((case_id, k))
+                else:
+                    print(f"Warning: Failed, incomplete or mismatched result {json_file}, will be re-run")
+            except (json.JSONDecodeError, UnicodeError, IOError) as e:
                 print(f"Warning: Corrupted result file {json_file}: {e}, will be re-run")
 
     if completed:
@@ -328,19 +347,6 @@ def scan_completed_cases(resume_dir: str) -> set[tuple[str, int]]:
 
         for case_id in sorted(case_groups.keys()):
             k_values = sorted(case_groups[case_id])
-            print(f"  Case {case_id}: k={k_values}")
-
-    if error_cases:
-        print(f"Found error cases that will be re-run:")
-        # Group by case_id and show k values
-        error_groups: dict[str, list[int]] = {}
-        for case_id, k in error_cases:
-            if case_id not in error_groups:
-                error_groups[case_id] = []
-            error_groups[case_id].append(k)
-
-        for case_id in sorted(error_groups.keys()):
-            k_values = sorted(error_groups[case_id])
             print(f"  Case {case_id}: k={k_values}")
 
     return completed
@@ -491,7 +497,6 @@ def run(config: HarnessConfig, json_dir: str, completed_cases: set[tuple[str, in
 
         # Initialize progress bar for parallel processing
         pbar = tqdm(total=len(remaining_work), desc="Processing cases", unit="case")
-        completed_tasks = 0
 
         # Process results as they complete (not in submission order)
         for future in concurrent.futures.as_completed(future_to_case):
@@ -499,7 +504,6 @@ def run(config: HarnessConfig, json_dir: str, completed_cases: set[tuple[str, in
             result = future.result()
             results.append(result)
 
-            completed_tasks += 1
             status = "✓" if result["correct"] else "✗"
 
             # Calculate accuracy percentage so far
@@ -507,31 +511,29 @@ def run(config: HarnessConfig, json_dir: str, completed_cases: set[tuple[str, in
             accuracy_pct = (correct_count / len(results)) * 100 if results else 0
 
             # Calculate running average cost per case
-            def get_cost_analysis_total(result: dict[str, Any]) -> float:
-                # Read the agent cost for the configured costing method (the key the
-                # harness actually writes; legacy new_cost_analysis / un-suffixed
-                # cost_analysis keys are no longer produced).
-                cost_analysis = result.get(f"cost_analysis_{config.sdbench.costing_method}", {})
-                if cost_analysis and "totals" in cost_analysis:
-                    return cost_analysis["totals"].get("total_with_visits", 0)
-                return 0
-
-            costs = [get_cost_analysis_total(r) for r in results if get_cost_analysis_total(r) > 0]
-            avg_cost = sum(costs) / len(costs) if costs else 0
+            costs = []
+            for completed_result in results:
+                analysis = completed_result.get(f"cost_analysis_{config.sdbench.costing_method}")
+                total = cost_summary(analysis)["totals"]["total_with_visits"]
+                if total is not None:
+                    costs.append(total)
+            avg_cost = sum(costs) / len(costs) if costs else None
 
             # Update progress bar with current stats
             postfix_dict: dict[str, object] = {
                 'accuracy': f'{accuracy_pct:.1f}%',
                 'last': f'{case_id}:{status}'
             }
-            if avg_cost > 0:
+            if config.sdbench.compute_costs:
+                postfix_dict['priced'] = f'{len(costs)}/{len(results)}'
+            if avg_cost is not None:
                 postfix_dict['avg_cost'] = f'${avg_cost:.0f}'
 
             pbar.set_postfix(ordered_dict=postfix_dict)  # pyright: ignore[reportUnknownMemberType]
             pbar.update(1)
 
-            if not result["correct"] and "model_diagnosis" in result and "Error" in str(result["model_diagnosis"]):
-                tqdm.write(f"Error with case {case_id}: {result['model_diagnosis']}")
+            if result.get("result_status") == "failed":
+                tqdm.write(f"Error with case {case_id}: {result['error_message']}")
                 # Don't print traceback to avoid cluttering progress bar
 
         pbar.close()

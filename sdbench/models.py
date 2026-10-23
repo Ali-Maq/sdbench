@@ -1,4 +1,5 @@
 import asyncio
+from copy import deepcopy
 import functools
 import os
 import random
@@ -73,6 +74,10 @@ AZURE_MODEL_MAP = {
 _F = TypeVar("_F", bound=Callable[..., Any])
 
 
+class ModelCallLimitError(RuntimeError):
+    """A fixed model-call budget is exhausted; waiting or retrying cannot restore it."""
+
+
 def _calculate_retry_delay(
     delay: float, backoff_factor: float, max_delay: float, jitter: bool
 ) -> tuple[float, float]:
@@ -139,6 +144,8 @@ def _retry_with_backoff(
             while True:
                 try:
                     return func(*args, **kwargs)
+                except ModelCallLimitError:
+                    raise
                 except retryable_errors as e:
                     retry_count += 1
                     if retry_count > max_retries:
@@ -188,6 +195,8 @@ def _retry_with_backoff_async(
             while True:
                 try:
                     return await func(*args, **kwargs)
+                except ModelCallLimitError:
+                    raise
                 except retryable_errors as e:
                     retry_count += 1
                     if retry_count > max_retries:
@@ -205,25 +214,23 @@ def _retry_with_backoff_async(
 
 
 @functools.cache
+def _cached_openrouter_client(api_key: str, asynchronous: bool) -> OpenAI | AsyncOpenAI:
+    client_type = AsyncOpenAI if asynchronous else OpenAI
+    return client_type(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+
+
 def _get_openrouter_client(api_key_var: str = "OPENROUTER_API_KEY") -> OpenAI:
     api_key = os.getenv(api_key_var)
     if not api_key:
         raise ValueError(f"{api_key_var} environment variable is not set.")
-    return OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key,
-    )
+    return cast(OpenAI, _cached_openrouter_client(api_key, False))
 
 
-@functools.cache
 def _get_async_openrouter_client(api_key_var: str = "OPENROUTER_API_KEY") -> AsyncOpenAI:
     api_key = os.getenv(api_key_var)
     if not api_key:
         raise ValueError(f"{api_key_var} environment variable is not set.")
-    return AsyncOpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key,
-    )
+    return cast(AsyncOpenAI, _cached_openrouter_client(api_key, True))
 
 
 LOCAL_MODEL_PREFIX = "local-"
@@ -287,44 +294,40 @@ def _make_async_local_client(kwargs: dict[str, Any], debug: bool = False) -> Asy
     return AsyncOpenAI(base_url=base_url, api_key=api_key, default_headers=headers)
 
 
+def _azure_client_settings() -> tuple[str, str, str]:
+    """Read current settings before selecting a cached client."""
+    api_key = os.getenv("AZURE_OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("AZURE_OPENAI_API_KEY environment variable is not set.")
+    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    if not azure_endpoint:
+        raise ValueError(
+            "AZURE_OPENAI_ENDPOINT environment variable is not set - e.g. https://<your-resource>.openai.azure.com/."
+        )
+    api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
+    return api_key, azure_endpoint, api_version
+
+
 @functools.cache
+def _cached_azure_client(
+    api_key: str, azure_endpoint: str, api_version: str, asynchronous: bool,
+) -> OpenAI | AsyncOpenAI:
+    print(f"Using Azure OpenAI endpoint: {azure_endpoint} with API version {api_version}")
+
+    client_type = AsyncAzureOpenAI if asynchronous else AzureOpenAI
+    return client_type(
+        azure_endpoint=azure_endpoint,
+        api_key=api_key,
+        api_version=api_version,
+    )
+
+
 def _get_azure_client() -> OpenAI:
-    api_key = os.getenv("AZURE_OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("AZURE_OPENAI_API_KEY environment variable is not set.")
-    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-    if not azure_endpoint:
-        raise ValueError(
-            "AZURE_OPENAI_ENDPOINT environment variable is not set - e.g. https://<your-resource>.openai.azure.com/."
-        )
-    api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
-    print(f"Using Azure OpenAI endpoint: {azure_endpoint} with API version {api_version}")
-
-    return AzureOpenAI(
-        azure_endpoint=azure_endpoint,
-        api_key=api_key,
-        api_version=api_version,
-    )
+    return cast(OpenAI, _cached_azure_client(*_azure_client_settings(), False))
 
 
-@functools.cache
 def _get_async_azure_client() -> AsyncOpenAI:
-    api_key = os.getenv("AZURE_OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("AZURE_OPENAI_API_KEY environment variable is not set.")
-    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-    if not azure_endpoint:
-        raise ValueError(
-            "AZURE_OPENAI_ENDPOINT environment variable is not set - e.g. https://<your-resource>.openai.azure.com/."
-        )
-    api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
-    print(f"Using Azure OpenAI endpoint: {azure_endpoint} with API version {api_version}")
-
-    return AsyncAzureOpenAI(
-        azure_endpoint=azure_endpoint,
-        api_key=api_key,
-        api_version=api_version,
-    )
+    return cast(AsyncOpenAI, _cached_azure_client(*_azure_client_settings(), True))
 
 
 @_retry_with_backoff()
@@ -472,6 +475,8 @@ def _configure_completion(model: str, **kwargs: Any) -> tuple[str, str, Any]:
         kwargs.pop("openrouter_zdr_only", None)
         default_model_args = MODEL_ARG_DEFAULTS.get(model, {})
         kwargs = {**default_model_args, **kwargs}
+        if "extra_body" in kwargs:
+            kwargs["extra_body"] = deepcopy(kwargs["extra_body"])
         return "local", model, kwargs
 
     env_force_azure = os.getenv("SDBENCH_FORCE_AZURE", "0").lower() in ("1", "true")
@@ -492,6 +497,9 @@ def _configure_completion(model: str, **kwargs: Any) -> tuple[str, str, Any]:
         **default_model_args,
         **kwargs,
     }  # Merge with passed args, with passed args taking precedence
+    # Provider routing is request-local; nested caller/default values may be reused.
+    if "extra_body" in kwargs:
+        kwargs["extra_body"] = deepcopy(kwargs["extra_body"])
 
     # Azure is only used when explicitly forced (e.g. to use your own ZDR Foundry deployment).
     # Otherwise OpenRouter handles ZDR routing natively via the `zdr` provider flag below, including

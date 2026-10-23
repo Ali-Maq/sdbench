@@ -1,9 +1,11 @@
+from contextlib import contextmanager
 import math
 import os
 import pickle
 import re
+import tempfile
 import time
-from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Iterator, NotRequired, TypedDict, cast
 
 import faiss  # pyright: ignore[reportMissingTypeStubs]
 from fuzzywuzzy import fuzz  # pyright: ignore[reportMissingTypeStubs]
@@ -11,10 +13,36 @@ import numpy as np
 from openai import OpenAI
 import pandas as pd
 from sdbench.config import CostingConfig
+from sdbench.costing.cache import embedding_identity
 from sdbench.models import create_chat_completion
 
 if TYPE_CHECKING:
     from sdbench.costing.cost_types import CostMethodEstimate
+
+
+class CPTSearchError(RuntimeError):
+    """A failed search stage must not be mistaken for a complete grounded lookup."""
+
+
+@contextmanager
+def _atomic_cache_path(destination: str) -> Iterator[str]:
+    """Publish only complete cache files, with separate temporary files per writer."""
+    fd, temporary = tempfile.mkstemp(dir=os.path.dirname(destination), suffix=".tmp")
+    os.close(fd)
+    try:
+        yield temporary
+        os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _embedding_array(values: Any, rows: int) -> np.ndarray:
+    array = np.asarray(values, dtype=np.float32)
+    if (array.ndim != 2 or array.shape[0] != rows or array.shape[1] == 0
+            or not np.isfinite(array).all() or not (np.linalg.norm(array, axis=1) > 0).all()):
+        raise ValueError("Embeddings must contain one finite, nonzero vector per procedure")
+    return array
 
 
 class CPTSearchResult(TypedDict):
@@ -112,11 +140,16 @@ class CPTFuzzyMatcher:
 
         # Load and process the charge master data (resolved under SDBENCH_DATA_PATH/costing_data)
         source_file_path: str = config.resolved_costing_source_file_path
+        source_identity = embedding_identity(config)
         self._df: pd.DataFrame = self._load_and_process_charge_data(source_file_path)
+        if embedding_identity(config) != source_identity:
+            raise ValueError("Charge master changed while loading; retry with a fixed source file")
 
-        # Load or create embeddings and FAISS index (cached next to the charge master)
-        embeddings_file: str = source_file_path + ".embeddings.pkl"
-        faiss_index_file: str = source_file_path + ".faiss.index"
+        # Content-addressed names invalidate legacy indexes, changed rows (even
+        # with the same row count), embedding routes and preprocessing changes.
+        cache_prefix = source_file_path + ".sdbench-" + source_identity
+        embeddings_file: str = cache_prefix + ".embeddings.pkl"
+        faiss_index_file: str = cache_prefix + ".faiss.index"
         self._faiss_index = self._load_or_create_embeddings_and_index(
             embeddings_file, faiss_index_file
         )
@@ -199,21 +232,19 @@ class CPTFuzzyMatcher:
         except ValueError:
             return 0.0
 
-    def _get_embeddings(self, text: list[str]) -> list[list[float]] | None:
+    def _get_embeddings(self, text: list[str]) -> list[list[float]]:
         """Get embedding(s) for text(s) using the configured embedding model."""
         try:
             response = self._openai_client.embeddings.create(
                 model=self._embedding_model,
                 input=text,
             )
-            return [item.embedding for item in response.data]
+            embeddings = [item.embedding for item in response.data]
+            _embedding_array(embeddings, len(text))
+            return embeddings
 
         except Exception as e:
-            if isinstance(text, str):
-                print(f"Error getting embedding for text: {text[:50]}... Error: {e}")
-            else:
-                print(f"Error getting embeddings for batch of {len(text)} texts. Error: {e}")
-            return None
+            raise CPTSearchError(f"Embedding request failed: {e}") from e
 
     def _load_or_create_embeddings_and_index(
         self, embeddings_file: str, faiss_index_file: str
@@ -221,25 +252,28 @@ class CPTFuzzyMatcher:
         """Load embeddings and FAISS index from cache or create new ones."""
         if os.path.exists(faiss_index_file):
             print(f"Loading FAISS index from: {faiss_index_file}")
-            return cast(Any, faiss.read_index(faiss_index_file))  # pyright: ignore[reportUnknownMemberType]
+            try:
+                index = faiss.read_index(faiss_index_file)
+                if (index.ntotal != len(self._df) or index.d <= 0
+                        or index.metric_type != faiss.METRIC_INNER_PRODUCT):
+                    raise ValueError("Index shape or metric does not match the charge master")
+                return index
+            except Exception as error:
+                print(f"Invalid FAISS cache; rebuilding: {error}")
 
         embeddings_array: np.ndarray | None = None
         if os.path.exists(embeddings_file):
             print(f"Loading embeddings from file: {embeddings_file}")
-            with open(embeddings_file, "rb") as f:
-                cache_data: dict[str, Any] = pickle.load(f)
-
-            # Verify cache is valid for current data
-            if len(cache_data["embeddings"]) == len(self._df):
-                embeddings_array = np.array(cache_data["embeddings"], dtype=np.float32)
-            else:
-                print(
-                    f"Cache invalid: embeddings count {len(cache_data['embeddings'])} != dataframe rows {len(self._df)}. Rebuilding..."
-                )
+            try:
+                with open(embeddings_file, "rb") as f:
+                    cache_data: dict[str, Any] = pickle.load(f)
+                embeddings_array = _embedding_array(cache_data["embeddings"], len(self._df))
+            except Exception as error:
+                print(f"Invalid embeddings cache; rebuilding: {error}")
 
         if embeddings_array is None:
             print("Creating embeddings for all procedures...")
-            all_embeddings: list[list[float] | None] = []
+            all_embeddings: list[list[float]] = []
 
             # Process in batches to optimize API calls and avoid rate limits
             batch_size: int = 500  # OpenAI allows up to 2048, but 500 is a safe batch size
@@ -256,17 +290,14 @@ class CPTFuzzyMatcher:
                 # Get embeddings for the entire batch in a single API call
                 batch_embeddings = self._get_embeddings(batch_texts)
 
-                if batch_embeddings is not None:
-                    all_embeddings.extend(batch_embeddings)  # type: ignore
-                else:
-                    raise RuntimeError(f"Failed to get embeddings for batch {i // batch_size + 1}")
+                all_embeddings.extend(batch_embeddings)
 
-            embeddings_array = np.array(all_embeddings, dtype=np.float32)
+            embeddings_array = _embedding_array(all_embeddings, len(self._df))
             embeddings_data = {"embeddings": embeddings_array.tolist()}
 
-            # Cache the embeddings
-            with open(embeddings_file, "wb") as f:
-                pickle.dump(embeddings_data, f)
+            with _atomic_cache_path(embeddings_file) as temporary:
+                with open(temporary, "wb") as f:
+                    pickle.dump(embeddings_data, f)
 
         # Create FAISS index
         print("Creating FAISS index...")
@@ -282,7 +313,8 @@ class CPTFuzzyMatcher:
         faiss_index.add(embeddings_array)  # pyright: ignore[reportUnknownMemberType, reportCallIssue]
 
         # Cache the FAISS index
-        faiss.write_index(faiss_index, faiss_index_file)  # pyright: ignore[reportUnknownMemberType]
+        with _atomic_cache_path(faiss_index_file) as temporary:
+            faiss.write_index(faiss_index, temporary)  # pyright: ignore[reportUnknownMemberType]
 
         print(f"Created FAISS index with {faiss_index.ntotal} vectors")
 
@@ -347,19 +379,13 @@ class CPTFuzzyMatcher:
         Returns:
             List of dictionaries containing the top matches with similarity scores
         """
-        # Only print for direct searches, not for LLM expanded searches
-        if not hasattr(self, "_quiet_search"):
-            print(f"Searching for: '{query}'")
+        print(f"Searching for: '{query}'")
 
         # Get embedding for the query
         query_embeddings = self._get_embeddings([query])
-        if query_embeddings is None:
-            print("Failed to get embedding for query")
-            return []
-
         return self._search_with_embedding(query_embeddings[0], top_k)
 
-    def keyword_search(self, query: str, top_k: int = 15) -> list[CPTSearchResult]:
+    def keyword_search(self, query: str, top_k: int = 15, *, quiet: bool = False) -> list[CPTSearchResult]:
         """Perform keyword-based search using fuzzy string matching and text contains.
 
         Args:
@@ -370,7 +396,7 @@ class CPTFuzzyMatcher:
             List of dictionaries containing the top matches with fuzzy scores
         """
         # Only print for direct searches, not for LLM expanded searches
-        if not hasattr(self, "_quiet_search"):
+        if not quiet:
             print(f"Performing keyword search for: '{query}'")
 
         query_lower: str = query.lower()
@@ -476,6 +502,8 @@ Only return the terms, one per line, no explanations or numbering:"""
                 if response.choices[0].message.content
                 else ""
             )
+            if not keywords_text:
+                raise ValueError("Keyword expansion returned no content")
             keywords: list[str] = [kw.strip() for kw in keywords_text.split("\n") if kw.strip()]
 
             # Remove the original query if it appears in the list
@@ -487,8 +515,7 @@ Only return the terms, one per line, no explanations or numbering:"""
             return keywords
 
         except Exception as e:
-            print(f"Error generating expanded keywords: {e}")
-            return []
+            raise CPTSearchError(f"Keyword expansion failed: {e}") from e
 
     def llm_expanded_search(self, query: str, top_k: int = 60) -> list[CPTSearchResult]:
         """Perform search using LLM-generated expanded keywords.
@@ -509,90 +536,56 @@ Only return the terms, one per line, no explanations or numbering:"""
             return []
 
         print(f"Fetching embeddings for {len(expanded_keywords)} keywords in one batch...")
-        batch_embeddings = self._get_embeddings(expanded_keywords)
-
-        if batch_embeddings is None or len(batch_embeddings) != len(expanded_keywords):
-            print("Failed to get embeddings for expanded keywords, falling back to sequential")
-            # Fallback to original sequential approach if batching fails
-            batch_embeddings = []
-            for keyword in expanded_keywords:
-                emb = self._get_embeddings([keyword])
-                if emb:
-                    batch_embeddings.append(emb[0])
-                else:
-                    batch_embeddings.append(None)
-
-        # Create mapping of keyword -> embedding
-        keyword_embeddings: dict[str, list[float] | None] = {
-            keyword: batch_embeddings[i] if i < len(batch_embeddings) else None
-            for i, keyword in enumerate(expanded_keywords)
-        }
-
-        # Filter out keywords without embeddings
-        valid_keywords = [kw for kw in expanded_keywords if keyword_embeddings.get(kw) is not None]
-        valid_embeddings = [
-            keyword_embeddings[kw] for kw in valid_keywords if keyword_embeddings[kw] is not None
-        ]
+        try:
+            batch_embeddings = self._get_embeddings(expanded_keywords)
+        except CPTSearchError:
+            print("Batch embedding request failed; retrying every expanded keyword separately")
+            # A recovered batch is usable only if every keyword succeeds.
+            batch_embeddings = [self._get_embeddings([keyword])[0] for keyword in expanded_keywords]
 
         all_results: list[CPTSearchResult] = []
         results_per_keyword: int = max(
             1, top_k // len(expanded_keywords)
         )  # Distribute results across keywords
 
-        if valid_embeddings:
-            # Convert embeddings to numpy array for batch processing
-            embeddings_array = np.array(valid_embeddings, dtype=np.float32)
+        # Every expanded keyword must have a valid vector before selection.
+        embeddings_array = _embedding_array(batch_embeddings, len(expanded_keywords))
 
-            # Normalize all embeddings at once for cosine similarity
-            faiss.normalize_L2(embeddings_array)  # pyright: ignore[reportUnknownMemberType]
+        faiss.normalize_L2(embeddings_array)  # pyright: ignore[reportUnknownMemberType]
 
-            # Batch FAISS search for all keywords at once
-            similarities, indices = self._faiss_index.search(embeddings_array, results_per_keyword)
+        similarities, indices = self._faiss_index.search(embeddings_array, results_per_keyword)
 
-            # Process results for each keyword
-            for keyword_idx, keyword in enumerate(valid_keywords):
-                for result_idx in range(results_per_keyword):
-                    cpt_idx = indices[keyword_idx][result_idx]
-                    similarity_score = float(similarities[keyword_idx][result_idx])
+        for keyword_idx, keyword in enumerate(expanded_keywords):
+            for result_idx in range(results_per_keyword):
+                cpt_idx = indices[keyword_idx][result_idx]
+                similarity_score = float(similarities[keyword_idx][result_idx])
 
-                    # Skip if similarity is too low
-                    if similarity_score <= 0:
-                        continue
+                if similarity_score <= 0:
+                    continue
 
-                    row = self._df.iloc[cpt_idx]
+                row = self._df.iloc[cpt_idx]
 
-                    result: CPTSearchResult = {
-                        "similarity_score": similarity_score,
-                        "cpt_code": str(row["Procedure Code (CPT / HCPCS)"]),
-                        "procedure_name": row["Procedure Name"],
-                        "gross_charge": self._clean_price(row["Gross Charge"]),
-                        "setting": row["Hospital Inpatient / Outpatient / Both"],
-                        "expanded_keyword": keyword,
-                        "search_type": "llm_semantic",
-                    }
-                    all_results.append(result)
-
-        # Set quiet mode to reduce verbose output during keyword search
-        self._quiet_search = True
+                result: CPTSearchResult = {
+                    "similarity_score": similarity_score,
+                    "cpt_code": str(row["Procedure Code (CPT / HCPCS)"]),
+                    "procedure_name": row["Procedure Name"],
+                    "gross_charge": self._clean_price(row["Gross Charge"]),
+                    "setting": row["Hospital Inpatient / Outpatient / Both"],
+                    "expanded_keyword": keyword,
+                    "search_type": "llm_semantic",
+                }
+                all_results.append(result)
 
         for keyword in expanded_keywords:
-            try:
-                keyword_results: list[CPTSearchResult] = self.keyword_search(
-                    keyword, top_k=results_per_keyword
-                )
-                for result in keyword_results:
-                    result["expanded_keyword"] = keyword
-                    result["search_type"] = "llm_keyword"
-                    # Convert keyword_score to similarity_score for consistency
-                    result["similarity_score"] = (result.get("keyword_score", 0)) / 100.0
-                    all_results.append(result)
-            except Exception as e:
-                print(f"Error in keyword search for '{keyword}': {e}")
-                continue
-
-        # Remove quiet mode
-        if hasattr(self, "_quiet_search"):
-            delattr(self, "_quiet_search")
+            keyword_results: list[CPTSearchResult] = self.keyword_search(
+                keyword, top_k=results_per_keyword, quiet=True
+            )
+            for result in keyword_results:
+                result["expanded_keyword"] = keyword
+                result["search_type"] = "llm_keyword"
+                # Convert keyword_score to similarity_score for consistency
+                result["similarity_score"] = (result.get("keyword_score", 0)) / 100.0
+                all_results.append(result)
 
         # Remove duplicates based on CPT code and sort by score
         seen_codes: set[str] = set()
@@ -786,6 +779,11 @@ SELECTED_CPT: [CPT code 1]
 SELECTED_CPT: [CPT code 2] (if multiple codes needed)
 SELECTED_CPT: [CPT code 3] (if additional codes needed)
 
+If no appropriate code exists, explain why and use exactly one selection line:
+REASONING: [Why no CPT/HCPCS code matches this procedure]
+SELECTED_CPT: NONE
+Do not mix NONE with selected codes. Each selected code must be a complete five-character CPT/HCPCS code.
+
 Example response format for single code:
 REASONING: This code specifically covers "RADIOLOGIC EXAM, CHEST; 2 VIEWS" which is the standard chest x-ray procedure typically performed in clinical practice.
 SELECTED_CPT: 71046
@@ -814,11 +812,10 @@ SELECTED_CPT: 88342
                 **self._config.costing_model_args,
             )
 
-            response_text: str = (
-                response.choices[0].message.content.strip()
-                if response.choices[0].message.content
-                else ""
-            )
+            choice = response.choices[0]
+            if choice.finish_reason != "stop":
+                raise ValueError(f"Incomplete CPT selection response: {choice.finish_reason}")
+            response_text: str = (choice.message.content or "").strip()
 
             # Parse the response for multiple CPT codes
             selected_cpts: list[str] = []
@@ -826,16 +823,24 @@ SELECTED_CPT: 88342
 
             lines: list[str] = response_text.split("\n")
             for line in lines:
+                line = line.strip()
                 if line.startswith("SELECTED_CPT:"):
-                    cpt: str = line.replace("SELECTED_CPT:", "").strip()
-                    if cpt:
-                        selected_cpts.append(cpt)
+                    cpt: str = line.removeprefix("SELECTED_CPT:").strip()
+                    if cpt != "NONE" and not re.fullmatch(r"(?:\d{5}|[A-Z]\d{4}|\d{4}[A-Z])", cpt):
+                        raise ValueError(f"Malformed selected CPT/HCPCS code: {cpt!r}")
+                    selected_cpts.append(cpt)
+                elif line.startswith("SELECTED_CPT"):
+                    raise ValueError("Malformed SELECTED_CPT field")
                 elif line.startswith("REASONING:"):
-                    reasoning = line.replace("REASONING:", "").strip()
+                    reasoning = line.removeprefix("REASONING:").strip()
 
-            if not selected_cpts:
+            if not reasoning or not selected_cpts:
+                raise ValueError("CPT selection requires reasoning and a complete SELECTED_CPT field")
+            if "NONE" in selected_cpts and selected_cpts != ["NONE"]:
+                raise ValueError("NONE cannot be combined with another selection")
+            if selected_cpts == ["NONE"]:
                 return {
-                    "error": f"No CPTs selected by LLM from {len(results)} candidates",
+                    "error": f"No appropriate CPTs selected by LLM from {len(results)} candidates",
                     "selected_results": [],
                     "selected_cpts": [],
                     "reasoning": reasoning,
@@ -896,89 +901,7 @@ SELECTED_CPT: 88342
             }
 
         except Exception as e:
-            return {
-                "error": f"Error in LLM selection: {e}",
-            }
-
-    def print_selection(self, selection: CPTSelectionResult, query: str = "") -> None:
-        """Pretty print the LLM selection result."""
-        if query:
-            print(f"\n🎯 Best CPT Selection for: '{query}'")
-        print("=" * 80)
-
-        if "error" in selection:
-            print(f"❌ Error: {selection['error']}")
-            return
-
-        # Handle multiple CPT codes
-        if "selected_results" in selection:
-            selected_results = selection["selected_results"]
-            print(f"🏆 Selected CPT Code(s): {len(selected_results)} code(s)")
-
-            total_charge: float = 0
-            for i, result in enumerate(selected_results, 1):
-                print(f"\n{i}. CPT Code: {result['cpt_code']}")
-                print(f"   📋 Procedure: {result['procedure_name']}")
-                print(f"   💰 Gross Charge: ${result['gross_charge']:,.2f}")
-                print(f"   🏥 Setting: {result['setting']}")
-
-                if result.get("search_type"):
-                    print(f"   🔍 Found via: {result.get('search_type')}")
-                if result.get("expanded_keyword"):
-                    print(f"   🤖 Expanded from: '{result.get('expanded_keyword')}'")
-
-                # Show scores if available
-                scores: list[str] = []
-                if result.get("similarity_score"):
-                    scores.append(f"Similarity: {result.get('similarity_score'):.3f}")
-                if result.get("keyword_score"):
-                    scores.append(f"Keyword: {result.get('keyword_score'):.1f}")
-                if scores:
-                    print(f"   📊 Scores: {', '.join(scores)}")
-
-                total_charge += result["gross_charge"]
-
-            print(f"\n💰 Total Combined Charge: ${total_charge:,.2f}")
-
-            if "missing_cpts" in selection:
-                print(
-                    f"\n⚠️  Warning: Some selected CPTs not found in results: {selection['missing_cpts']}"
-                )
-
-        print(f"\n🧠 Reasoning: {selection.get('reasoning', 'No reasoning provided')}")
-        print("=" * 80)
-
-    def print_results(self, results: list[CPTSearchResult], query: str = "") -> None:
-        """Pretty print the search results."""
-        if query:
-            print(f"\n🔍 Search Results for: '{query}'")
-        print("=" * 80)
-
-        for i, result in enumerate(results, 1):
-            print(f"\n{i}. CPT Code: {result['cpt_code']}")
-            print(f"   Procedure: {result['procedure_name']}")
-
-            # Handle different score types
-            if "similarity_score" in result:
-                print(f"   Similarity: {result['similarity_score']:.3f}")
-            if "keyword_score" in result:
-                print(f"   Keyword Score: {result['keyword_score']:.1f}")
-            if "search_type" in result:
-                print(f"   Search Type: {result['search_type']}")
-            if "expanded_keyword" in result:
-                print(f"   Expanded From: '{result['expanded_keyword']}'")
-
-            print(f"   Gross Charge: ${result['gross_charge']:,.2f}")
-            print(f"   Setting: {result['setting']}")
-            print("-" * 60)
-
-    def get_index_stats(self) -> dict[str, Any]:
-        """Get statistics about the FAISS index and dataset."""
-        return {
-            "total_procedures": len(self._df),
-            "faiss_index_size": self._faiss_index.ntotal,
-            "faiss_index_type": type(self._faiss_index).__name__,
-        }
+            raise CPTSearchError(f"CPT selection failed: {e}") from e
 
     def find_best_cpt(
         self,
@@ -1050,11 +973,7 @@ SELECTED_CPT: 88342
             return selection
 
         except Exception as e:
-            return {
-                "error": f"Error processing query '{query}': {e!s}",
-                "query": query,
-                "search_params": default_params,
-            }
+            raise CPTSearchError(f"CPT search failed for '{query}': {e}") from e
 
     def cost_test(self, test_name: str) -> "CostMethodEstimate":
         start_time = time.time()
