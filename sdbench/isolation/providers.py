@@ -22,6 +22,7 @@ from openai.types.chat import ChatCompletion
 
 from sdbench.isolation.accounting import RateCard, normalize_usage, usage_entry
 from sdbench.isolation.common import append_jsonl
+from sdbench.models import ModelCallLimitError
 
 ROLES = {"diagnosis", "gatekeeper", "judge"}
 ALLOWED_ARGS = {
@@ -248,7 +249,7 @@ class MeteredBackend:
         if kwargs:
             raise ValueError("Callers may supply messages only; model and settings are role-bound")
         if self.calls >= self.max_calls:
-            raise RuntimeError("Per-role model call limit exhausted")
+            raise ModelCallLimitError("Per-role model call limit exhausted")
         self.calls += 1
         messages = list(messages)
         call_id = uuid.uuid4().hex

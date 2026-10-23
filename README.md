@@ -1,67 +1,36 @@
 # SDBench in Harbor
 
-Run Microsoft's released sequential diagnostic baseline in Harbor, inspect the
-encounter, and measure how changing its information gatekeeper affects the result.
-
-Our research goal is to evaluate this workflow on diagnostic episodes extracted
-from longitudinal multiple-myeloma records. **That study has not run.** The current
-implementation has been exercised on fictional cases; custom longitudinal episode
-preparation, one-shot comparisons and clinical evaluation remain to be built.
-The [study plan](docs/STUDY_PROTOCOL.md) defines those boundaries and comparisons.
-
-**Original MAI-DxO is not included.** Microsoft's public release supplies SDBench's
-baseline, gatekeeper, judge and costing code. The optional `experimental_panel`
-is a separately written exploration, outside the primary study. It cannot reproduce
-the original MAI-DxO result. See the [source audit](docs/mai_dxo_source_audit.json).
-
-[Upstream repository](https://github.com/microsoft/sdbench) ·
-[Science paper](https://www.science.org/doi/10.1126/science.aeh7930) ·
-[Verification record](docs/VERIFICATION.md)
-
-## What the code does
+Run Microsoft's released SDBench diagnostic baseline in Harbor with separate
+case access, verifiable encounter artifacts and a paired gatekeeper experiment.
+The diagnostic agent asks questions and orders tests; the gatekeeper supplies
+observations; a separate judge scores the final diagnosis against the reference.
 
 ```mermaid
 flowchart LR
-    S["Brief presentation"] --> D["Released diagnostic baseline"]
+    S["Brief presentation"] --> D["Diagnostic baseline"]
     D -->|"Questions / tests"| G["Gatekeeper"]
-    C["Private case evidence"] --> G
+    C["Private case"] --> G
     G -->|"Observations"| D
-    D -->|"Final diagnosis"| J["Judge"]
-    R["Case + reference diagnosis"] --> J
-    J --> O["Clinical similarity score 1–5"]
+    D -->|"Final diagnosis"| J["Separate judge"]
+    R["Case + reference"] --> J
+    J --> O["Score and saved evidence"]
 ```
 
-The judge assesses clinical meaning, specificity and incorrect additions; it is
-not a keyword matcher. SDBench counts scores 4–5 as correct. Some omitted qualifiers
-can still receive 4, so that outcome alone cannot establish accurate disease staging
-or progression assessment. Those need explicit episode-specific endpoints.
+We reuse SDBench's baseline, TestRunner, clinical prompts, judge and HTML
+renderer. Harbor handles environments, scheduling, artifact collection and ATIF
+trajectories. The adapter adds the role boundary, metered provider calls and
+paired analysis. These are three containers on a shared host kernel; semantic
+disclosure still needs evaluation.
 
-Harbor runs the diagnostic client and a trusted gatekeeper sidecar, collects the
-sidecar's evidence, then runs a separate verifier. These are **three containers
-sharing the host kernel**. The diagnostic client cannot read the private case or
-reference files. Textual disclosure by the gatekeeper still needs evaluation.
+**Original MAI-DxO is not included.** The earlier paper-inspired panel was removed
+because it was outside this project's baseline study. See [upstream sources](docs/SOURCES.md).
+The retained Langfuse exporter sends API metadata only; it does not add a clinical
+evaluator or change the diagnostic workflow.
 
-We reuse SDBench's diagnostic loop, prompts, TestRunner, judge and HTML renderer;
-Harbor provides scheduling, environments, artifacts and its ATIF trajectory viewer.
-The adapter adds the role boundary, metered provider calls and paired analysis.
-The [architecture guide](docs/HARBOR_EXPERIMENT.md#architecture) maps each part to code.
+## Run a fictional smoke test
 
-## Current status
-
-| Capability | Status |
-| --- | --- |
-| Released baseline in Harbor | Ten mock encounters completed; see verification record |
-| Paired `o4-mini` / `gpt-5` gatekeeper schedule | Implemented for direct OpenAI; live comparison not run |
-| Azure Responses API, per-attempt usage, native trajectory and clinical report | Earlier baseline and panel smoke runs on fictional data; not a controlled comparison |
-| Optional experimental panel | Separate policy; live fictional example scored **2/5**, incorrect |
-| Langfuse | Optional post-run API metadata export; no clinical dialogue or evaluator ensemble |
-| Real longitudinal patient evaluation | Not run; no custom cohort support in the paired CLI |
-| Clinical-workup cost in Harbor / invoiced API charges | Not calculated / not reconciled |
-
-## Try Harbor without model API calls
-
-Requires Docker, [uv](https://docs.astral.sh/uv/) and Python 3.12 for Harbor 0.24.0.
-Core SDBench and role images support Python 3.11. Run from the repository root:
+Requires Docker, [uv](https://docs.astral.sh/uv/) and Python 3.12 for Harbor 0.24.
+Core SDBench and role images support Python 3.11. From the repository root:
 
 ```bash
 uv sync --python 3.12 --extra harbor
@@ -75,53 +44,59 @@ uv run --extra harbor harbor run --config results/harbor-smoke/job.json
 
 uv run --extra harbor python -m sdbench.cli.isolation summarize \
   --manifest results/harbor-smoke/manifest.json \
-  --jobs results/harbor-smoke/jobs \
-  --output results/harbor-smoke/summary.json
+  --jobs results/harbor-smoke/jobs --output results/harbor-smoke/summary.json
 
 uv run --extra harbor harbor view results/harbor-smoke/jobs \
   --host 127.0.0.1 --port 8080-8089 --jobs
 ```
 
-This runs five fictional cases under two mock conditions. The mock judge returns
-3/5 and reward 0 deliberately; completion tests execution, not medical accuracy.
-Preparation refuses to overwrite an existing directory. Choose a new path to repeat.
+Five fictional cases × two mock conditions give ten encounters and no model
+API calls. The mock judge deliberately returns 3/5 and reward 0. Completion is
+an execution check, not diagnostic accuracy. Use a new output path when repeating.
 
-Open a trial to inspect messages, requests and observations. This is a text trace;
-there is no screen video. Full role conversations and the reference belong in the
-evaluator's [clinical report](docs/HARBOR_EXPERIMENT.md#viewing-results-and-reports).
-Unknown API dollars can leave Harbor's cost-versus-reward plot empty; use tokens
-or time. That plot is not the paper's medical-workup cost frontier.
+Open a trial to see its text trajectory. The evaluator's clinical report contains
+all role conversations and the reference. There is no screen video. Unknown API
+cost can leave Harbor's Pareto plot empty. Use time, or tokens when usage was recorded.
 
-## Documentation
+## Scope
 
-| Question | Guide |
+| Working capability | Boundary |
 | --- | --- |
-| What study are we proposing, and what can it establish? | [Study protocol](docs/STUDY_PROTOCOL.md) |
-| How are roles isolated, live calls run and paired results analyzed? | [Harbor architecture and commands](docs/HARBOR_EXPERIMENT.md) |
-| How do I use the original harness, providers and clinical costing? | [Stock harness](docs/STOCK_HARNESS.md), [runbook](RUN_SDBENCH.md) |
-| What are the optional panel and Langfuse exporter? | [Extensions](docs/AGENT_EXTENSIONS.md) |
-| What has actually been tested? | [Verification](docs/VERIFICATION.md) |
+| Released baseline through Harbor | Scripted transport parity and mock container checks; see verification |
+| Paired `o4-mini` / `gpt-5` gatekeeper schedule | Direct OpenAI; live comparison not run |
+| Azure Responses and refreshed credentials | Separate single-model fictional smoke route |
+| Native trajectory, clinical report, usage ledger | Recorded model flags are not independently verified source evidence |
+| Optional Langfuse export | Post-run metadata; no clinical text or reconstructed execution waterfall |
 
-## Data and contributions
+The planned study uses diagnostic episodes from longitudinal myeloma records.
+**No real patient has been evaluated.** Custom episode preparation, recorded-only
+evidence retrieval, one-shot comparisons and episode-specific evaluators remain
+unimplemented. The current paired CLI accepts only `synthetic`, `nejm` and `mimic`.
 
-Five fictional cases are bundled. Real [NEJM](data/processed_case_data/nejm/README.md)
-and [MIMIC](data/processed_case_data/mimic/README.md) cases require their respective
-access permissions. The stock [case loader](sdbench/case_data.py) supports custom
-datasets, but the paired Harbor CLI currently accepts only `synthetic`, `nejm`
-and `mimic`. A full longitudinal chart is not a prepared diagnostic episode.
+The released judge assesses clinical meaning and specificity, not keywords, but
+can count omitted qualifiers as correct at 4/5. A staging or progression endpoint
+needs a separately declared rubric. Estimated medical-workup cost, token-rate API
+estimates and invoiced charges are separate quantities; Harbor does not yet run
+clinical costing or reconcile invoices.
 
-Generated tasks, images and reports can contain full case evidence. Keep these
-inside the dataset's permitted research environment, outside source control.
+## Guides
 
-For diagnostic policies, reuse the upstream
-[`DiagnosticAgent` interface](sdbench/agents/__init__.py):
-`run(case_summary, test_runner, agent_llm, collector, config)`.
-Keep new study endpoints separate from the released compatibility score.
+- [Harbor](docs/HARBOR_EXPERIMENT.md): source map, role boundaries, live commands, reports and tracing.
+- [Stock SDBench](RUN_SDBENCH.md): original runner, provider configuration and clinical costing.
+- [Study plan](docs/STUDY_PROTOCOL.md): proposed episodes and comparisons, separate from implemented code.
+- [Verification](docs/VERIFICATION.md): checks actually run and their limits.
+- [Cleanup tickets](https://github.com/Ali-Maq/sdbench/issues/2): file decisions and completion evidence.
+
+Five fictional cases are bundled. [NEJM](data/processed_case_data/nejm/README.md)
+and [MIMIC](data/processed_case_data/mimic/README.md) require their respective access
+permissions. The stock [case loader](sdbench/case_data.py) accepts custom datasets;
+a full longitudinal chart still needs episode preparation. Generated tasks,
+images and reports can contain the private case and belong outside source control.
 
 ```bash
-uv run --python 3.11 python -m compileall -q sdbench
-uv run --python 3.12 --extra harbor --extra panel --extra tracing \
-  python -m unittest discover -s tests -v
+uv sync --python 3.12 --extra harbor --extra tracing
+uv run python -m unittest discover -s tests -v
+uv build
 ```
 
 ## Credit and license

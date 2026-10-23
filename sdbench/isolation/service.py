@@ -64,8 +64,7 @@ class TrialService:
     def session(self) -> dict[str, Any]:
         return {"case_summary": self.case["case_summary"], "max_turns": self.runner.max_turns,
                 "turns_left": self.runner.turns_left,
-                "diagnostic_agent": self.config.get("diagnostic_agent", "baseline"),
-                "max_model_calls": self.config.get("max_model_calls", 150)}
+                "diagnostic_agent": self.config.get("diagnostic_agent", "baseline")}
 
     def dispatch(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
         if self.closed:
@@ -152,15 +151,21 @@ def make_server(service: TrialService, host: str = "127.0.0.1", port: int = 0) -
             try:
                 if self.headers.get("Transfer-Encoding"):
                     raise RequestRejected("Transfer encoding is unsupported")
-                length = int(self.headers.get("Content-Length", "0"))
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                except ValueError:
+                    raise RequestRejected("Invalid request length") from None
                 if not 1 <= length <= MAX_BODY_BYTES:
                     raise RequestRejected("Invalid request length")
-                body = json.loads(self.rfile.read(length))
+                try:
+                    body = json.loads(self.rfile.read(length))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    raise RequestRejected("Invalid JSON request") from None
                 if not isinstance(body, dict):
                     raise RequestRejected("Expected JSON object")
                 self.send_json(200, service.dispatch(self.path, body))
-            except (RequestRejected, json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
-                self.send_json(400, {"error": str(error) if isinstance(error, RequestRejected) else "Invalid request"})
+            except RequestRejected as error:
+                self.send_json(400, {"error": str(error)})
             except Exception as error:
                 service.fail(error)
                 self.send_json(503, {"error": "Encounter failed; details retained in protected evidence"})

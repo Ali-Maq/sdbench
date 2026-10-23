@@ -4,15 +4,31 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from sdbench.config import SDBenchConfig
 
 
+def plain_json(value: Any) -> Any:
+    """Normalize immutable mappings and sequences without accepting invalid JSON values."""
+    if isinstance(value, Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise ValueError("JSON object keys must be strings")
+        return {key: plain_json(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [plain_json(item) for item in value]
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float) and math.isfinite(value):
+        return value
+    raise ValueError(f"Unsupported or non-finite protocol value: {type(value).__name__}")
+
+
 def canonical_hash(value: Any) -> str:
-    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    encoded = json.dumps(plain_json(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
@@ -36,6 +52,8 @@ def write_json(path: str | Path, value: Any) -> None:
 
 
 def sdbench_config(config: dict[str, Any]) -> SDBenchConfig:
+    if config.get("diagnostic_agent", "baseline") != "baseline":
+        raise ValueError("Only the released baseline diagnostic_agent is supported")
     return SDBenchConfig(
         max_turns=config["max_turns"],
         max_questions_per_turn=config.get("max_questions_per_turn"),

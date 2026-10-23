@@ -61,7 +61,7 @@ def prepare_smoke(args: argparse.Namespace) -> None:
         "case_hash": canonical_hash(case), "code_hash": code_hash,
         "prompt_hashes": {str(path.relative_to(package)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths},
         "gk_prompt": gk_prompt, "judge_prompt": judge_prompt,
-        "diagnostic_agent": getattr(args, "diagnostic_agent", "baseline"),
+        "diagnostic_agent": "baseline",
         "diagnosis_model": args.model, "gatekeeper_model": args.model, "judge_model": args.model,
         "diagnosis_model_args": model_args, "gatekeeper_model_args": model_args, "judge_model_args": model_args,
         "provider": "azure", "provider_base_url": endpoint, "api_transport": "responses",
@@ -122,7 +122,6 @@ def prepare(args: argparse.Namespace) -> None:
         dataset=args.dataset, case_set=args.case_set,
         case_ids=tuple(case["case_id"] for case in cases),
         diagnosis_model=args.diagnosis_model, repetitions=args.repetitions,
-        diagnostic_agent=getattr(args, "diagnostic_agent", "baseline"),
         max_turns=args.max_turns, max_model_calls=args.max_model_calls,
         api_mode=args.api_mode, seed=args.seed,
         diagnosis_model_args=model_args, gatekeeper_model_args=model_args,
@@ -254,7 +253,6 @@ def main() -> None:
     smoke = commands.add_parser("prepare-smoke", help="Prepare one live Azure synthetic encounter for the native Harbor viewer")
     smoke.add_argument("--model", required=True)
     smoke.add_argument("--base-url", required=True)
-    smoke.add_argument("--diagnostic-agent", choices=["baseline", "experimental_panel"], default="baseline")
     smoke.add_argument("--case-id", default="0")
     smoke.add_argument("--max-turns", type=int, default=5)
     smoke.add_argument("--max-model-calls", type=int, default=8)
@@ -268,7 +266,6 @@ def main() -> None:
     plan.add_argument("--case-set", default="all")
     plan.add_argument("--case-id", action="append")
     plan.add_argument("--diagnosis-model", default="gpt-5")
-    plan.add_argument("--diagnostic-agent", choices=["baseline", "experimental_panel"], default="baseline")
     plan.add_argument("--repetitions", type=int, default=1)
     plan.add_argument("--max-turns", type=int, default=70)
     plan.add_argument("--max-model-calls", type=int, default=150)

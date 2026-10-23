@@ -26,7 +26,6 @@ from sdbench.models import (
     as_assistant_message,
     call_llm_with_retry,
     create_chat_completion,
-    print_messages,
 )
 
 

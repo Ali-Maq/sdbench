@@ -1,3 +1,7 @@
+This is an independently maintained fork. The policy below is retained from
+upstream and describes Microsoft's handling of Microsoft-owned code; its response
+commitments do not cover this fork's Harbor extension.
+
 <!-- BEGIN MICROSOFT SECURITY.MD V0.0.9 BLOCK -->
 
 ## Security

@@ -13,7 +13,8 @@ from unittest.mock import patch
 
 from sdbench.cli import isolation
 from sdbench.isolation.accounting import RateCard, usage_entry
-from sdbench.isolation.experiment import ExperimentConfig, build_trial_configs, canonical_hash
+from sdbench.isolation.common import canonical_hash
+from sdbench.isolation.experiment import ExperimentConfig, build_trial_configs
 
 
 class IsolationCLITests(unittest.TestCase):

@@ -8,14 +8,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-import hashlib
-import json
-import math
 import random
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping
 
 from sdbench.isolation.accounting import RateCard
+from sdbench.isolation.common import canonical_hash, plain_json
 
 
 GATEKEEPER_MODELS = ("o4-mini", "gpt-5")
@@ -30,38 +28,12 @@ SCIENCE_PROMPTS = {
 }
 
 
-def _plain(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        if any(not isinstance(key, str) for key in value):
-            raise ValueError("JSON object keys must be strings")
-        return {key: _plain(item) for key, item in value.items()}
-    if isinstance(value, (tuple, list)):
-        return [_plain(item) for item in value]
-    if value is None or isinstance(value, (str, bool, int)):
-        return value
-    if isinstance(value, float) and math.isfinite(value):
-        return value
-    raise ValueError(f"Unsupported or non-finite protocol value: {type(value).__name__}")
-
-
 def _freeze(value: Any) -> Any:
     if isinstance(value, dict):
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})
     if isinstance(value, list):
         return tuple(_freeze(item) for item in value)
     return value
-
-
-def canonical_hash(value: Any) -> str:
-    """Hash canonical JSON; callers can hash source bytes separately if appropriate."""
-    encoded = json.dumps(_plain(value), sort_keys=True, separators=(",", ":"),
-                         ensure_ascii=False, allow_nan=False).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def hash_case_data(case: Mapping[str, Any]) -> str:
-    """Commit to the complete immutable case without exporting its contents."""
-    return canonical_hash(case)
 
 
 @dataclass(frozen=True)
@@ -88,8 +60,8 @@ class ExperimentConfig:
     rate_cards: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.diagnostic_agent not in {"baseline", "experimental_panel"}:
-            raise ValueError("diagnostic_agent must be baseline or experimental_panel")
+        if self.diagnostic_agent != "baseline":
+            raise ValueError("Only the released baseline diagnostic_agent is supported")
         if self.dataset not in SCIENCE_PROMPTS:
             raise ValueError("dataset must be nejm, mimic, or synthetic")
         if not self.case_set.strip() or not self.diagnosis_model.strip() or not self.judge_model.strip():
@@ -124,7 +96,7 @@ class ExperimentConfig:
             value = getattr(self, name)
             if not isinstance(value, Mapping):
                 raise ValueError(f"{name} must be a mapping")
-            object.__setattr__(self, name, _freeze(_plain(value)))
+            object.__setattr__(self, name, _freeze(plain_json(value)))
         if not isinstance(self.rate_cards, Mapping):
             raise ValueError("rate_cards must map model identifiers to dated rate cards")
         for model, rates in self.rate_cards.items():
@@ -134,10 +106,10 @@ class ExperimentConfig:
                 RateCard(**dict(rates))
             except (TypeError, ValueError) as error:
                 raise ValueError(f"Invalid rate card for model {model}") from error
-        object.__setattr__(self, "rate_cards", _freeze(_plain(self.rate_cards)))
+        object.__setattr__(self, "rate_cards", _freeze(plain_json(self.rate_cards)))
 
     def as_dict(self) -> dict[str, Any]:
-        return {name: _plain(getattr(self, name)) for name in self.__dataclass_fields__}
+        return {name: plain_json(getattr(self, name)) for name in self.__dataclass_fields__}
 
 
 def build_trial_configs(
@@ -196,20 +168,20 @@ def _percentile(values: list[float], quantile: float) -> float:
 
 def analyze_trials(
     records: Iterable[Mapping[str, Any]], *,
-    expected_trials: Iterable[Mapping[str, Any]] | None = None,
+    expected_trials: Iterable[Mapping[str, Any]],
     bootstrap_samples: int = 2000, seed: int = 0,
 ) -> dict[str, Any]:
     """Analyze paired outcomes, retaining failed/missing attempts in primary accuracy.
 
     Completed records require ``status='completed'`` and a boolean ``correct``.
-    Supply the frozen expected schedule to detect episodes absent from the output.
-    Without it, only pairs visible in the records can be assessed. Audit findings are
-    reported only when an explicit boolean ``audit.leakage`` is supplied.
+    The frozen expected schedule is required so entirely absent pairs remain in
+    the denominator. Audit findings are reported only when an explicit boolean
+    ``audit.leakage`` is supplied.
     """
     if isinstance(bootstrap_samples, bool) or not isinstance(bootstrap_samples, int) or bootstrap_samples < 1:
         raise ValueError("bootstrap_samples must be a positive integer")
     observations = [dict(record) for record in records]
-    schedule = None if expected_trials is None else [dict(trial) for trial in expected_trials]
+    schedule = [dict(trial) for trial in expected_trials]
     identity_fields = ("trial_id", "pair_id", "dataset", "protocol_hash", "case_id", "repetition", "gatekeeper_model")
 
     def index(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -229,14 +201,13 @@ def analyze_trials(
         return indexed
 
     observed = index(observations)
-    expected = index(schedule) if schedule is not None else observed
-    if schedule is not None:
-        if set(observed) - set(expected):
-            raise ValueError("Observed trial not present in the expected schedule")
-        for trial_id, record in observed.items():
-            for key in (*identity_fields, "case_hash"):
-                if key in expected[trial_id] and record.get(key) != expected[trial_id][key]:
-                    raise ValueError(f"Observed trial differs from manifest: {key}")
+    expected = index(schedule)
+    if set(observed) - set(expected):
+        raise ValueError("Observed trial not present in the expected schedule")
+    for trial_id, record in observed.items():
+        for key in (*identity_fields, "case_hash"):
+            if key in expected[trial_id] and record.get(key) != expected[trial_id][key]:
+                raise ValueError(f"Observed trial differs from manifest: {key}")
 
     groups: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
     protocols: dict[str, set[str]] = defaultdict(set)
@@ -256,8 +227,8 @@ def analyze_trials(
         if model in pair["arms"]:
             raise ValueError("Duplicate arm within a pair")
         pair["arms"][model] = trial
-    if schedule is not None and any(set(pair["arms"]) != set(GATEKEEPER_MODELS)
-                                    for pairs in groups.values() for pair in pairs.values()):
+    if any(set(pair["arms"]) != set(GATEKEEPER_MODELS)
+           for pairs in groups.values() for pair in pairs.values()):
         raise ValueError("Expected schedule must contain both arms for every pair")
 
     rng = random.Random(seed)
@@ -321,7 +292,7 @@ def analyze_trials(
                        "uneven_repetitions": len({len(values) for values in case_differences.values()}) > 1,
                        "case_differences": {case: sum(values) / len(values) for case, values in sorted(case_differences.items())}},
         }
-    return {"schema_version": 1, "expected_manifest_provided": schedule is not None,
+    return {"schema_version": 1, "expected_manifest_provided": True,
             "failure_policy": "Missing, failed, and invalid completed results count as incorrect in primary accuracy",
-            "denominator_scope": "frozen_schedule" if schedule is not None else "observed_pairs_only",
+            "denominator_scope": "frozen_schedule",
             "datasets": datasets}

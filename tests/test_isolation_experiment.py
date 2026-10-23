@@ -3,12 +3,12 @@
 from dataclasses import FrozenInstanceError, replace
 import json
 import os
+from types import MappingProxyType
 import unittest
 from unittest.mock import patch
 
-from sdbench.isolation.experiment import (
-    ExperimentConfig, analyze_trials, build_trial_configs, canonical_hash, hash_case_data,
-)
+from sdbench.isolation.common import canonical_hash
+from sdbench.isolation.experiment import ExperimentConfig, analyze_trials, build_trial_configs
 
 
 class ExperimentTests(unittest.TestCase):
@@ -24,7 +24,7 @@ class ExperimentTests(unittest.TestCase):
             "baseline.py": canonical_hash("baseline"),
             "gatekeeper/prompt.yaml": canonical_hash("gatekeeper"),
             "judge/prompt.yaml": canonical_hash("judge"),
-        }, case_hashes={case: hash_case_data({"id": case, "full_text": "sensitive-marker"})
+        }, case_hashes={case: canonical_hash({"id": case, "full_text": "sensitive-marker"})
                        for case in config.case_ids})
         values.update(kwargs)
         return build_trial_configs(config, **values)
@@ -64,7 +64,7 @@ class ExperimentTests(unittest.TestCase):
         changed = self.manifest(config, code_hash="changed-revision")
         self.assertNotEqual(trials[0]["protocol_hash"], changed[0]["protocol_hash"])
         changed = self.manifest(config, case_hashes={"a": canonical_hash("changed-case"),
-                                                    "b": hash_case_data({"id": "b", "full_text": "sensitive-marker"})})
+                                                    "b": canonical_hash({"id": "b", "full_text": "sensitive-marker"})})
         self.assertNotEqual(trials[0]["protocol_hash"], changed[0]["protocol_hash"])
 
     def test_nested_model_settings_are_immutable_and_detached_from_caller(self):
@@ -78,9 +78,19 @@ class ExperimentTests(unittest.TestCase):
         with self.assertRaises(FrozenInstanceError):
             config.repetitions = 5
 
+    def test_shared_hash_preserves_immutable_values_and_rejects_invalid_json(self):
+        frozen = MappingProxyType({"a": (1, MappingProxyType({"b": 2}))})
+        self.assertEqual(canonical_hash(frozen),
+                         "131046d752153f6caec4efda5b2eef9d24c020ea4af78718437c0968524e4700")
+        for value in ({1: "nonstring key"}, {"x": float("nan")},
+                      {"x": float("inf")}, {"x": {1, 2}}):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                canonical_hash(value)
+
     def test_rejects_protocol_ambiguity(self):
         for kwargs in ({"case_ids": ("a", "a")}, {"repetitions": 0},
                        {"max_model_calls": True}, {"api_mode": "production"},
+                       {"diagnostic_agent": "experimental_panel"},
                        {"gk_models": ("gpt-5", "o4-mini")},
                        {"dataset": "mimic", "gk_prompt": "v6_fixed"}):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
@@ -156,18 +166,31 @@ class ExperimentTests(unittest.TestCase):
         changed = [{**record} for record in records]
         changed[0]["protocol_hash"] = "other-protocol"
         with self.assertRaises(ValueError):
-            analyze_trials(changed)
+            analyze_trials(changed, expected_trials=trials)
         with self.assertRaises(ValueError):
             analyze_trials(records[:-1], expected_trials=trials[:-1])
 
-    def test_no_manifest_is_explicitly_limited_and_audits_are_optional(self):
+    def test_manifest_is_required_even_when_observations_are_empty(self):
+        with self.assertRaises(TypeError):
+            analyze_trials([])
+        trials = self.manifest()
+        report = analyze_trials([], expected_trials=trials, bootstrap_samples=10)
+        self.assertEqual(report["denominator_scope"], "frozen_schedule")
+        self.assertTrue(report["expected_manifest_provided"])
+        data = report["datasets"]["synthetic"]
+        self.assertEqual(data["pair_count"], 2)
+        self.assertEqual(len(data["paired"]["missing_pairs"]), 2)
+        for arm in data["arms"].values():
+            self.assertEqual(arm["attempted_episodes"], 2)
+            self.assertEqual(arm["missing_episodes"], 2)
+            self.assertEqual(arm["accuracy_primary"], 0)
+
+    def test_invalid_completion_and_optional_audits_keep_the_frozen_denominator(self):
         trials = self.manifest()
         records = self.records(trials)
         records[0]["audit"] = {"leakage": False}
         records[1]["correct"] = "true"  # Invalid completion is not silently successful.
-        report = analyze_trials(records, bootstrap_samples=10)
-        self.assertEqual(report["denominator_scope"], "observed_pairs_only")
-        self.assertFalse(report["expected_manifest_provided"])
+        report = analyze_trials(records, expected_trials=trials, bootstrap_samples=10)
         arms = report["datasets"]["synthetic"]["arms"]
         self.assertEqual(sum(stats["completed_episodes"] for stats in arms.values()), 3)
         self.assertEqual(sum(stats["audited_episodes"] for stats in arms.values()), 1)

@@ -25,7 +25,6 @@ def _shutdown_all_executors():
 atexit.register(_shutdown_all_executors)
 
 
-@functools.lru_cache(maxsize=8)
 def _get_executor(
     use_multiprocess: bool, num_workers: int
 ) -> ThreadPoolExecutor | ProcessPoolExecutor:

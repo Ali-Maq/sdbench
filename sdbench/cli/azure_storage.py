@@ -27,6 +27,9 @@ from sdbench.azure_storage import (
 )
 
 
+_TEST_BLOB_PREFIX = "test/azure_cli_test_"
+
+
 def main():
     """Test Azure Blob Storage connectivity and permissions."""
     dotenv.load_dotenv(override=True)
@@ -76,7 +79,7 @@ def main():
         }
 
         test_blob_name = (
-            f"test/azure_cli_test_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            f"{_TEST_BLOB_PREFIX}{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         )
 
         print(f"Uploading test blob: {test_blob_name}")
@@ -145,7 +148,7 @@ def main():
         print("DELETE TEST BLOBS")
         print("=" * 60)
 
-        test_blob_names = list_blobs(args.account_name, args.container_name, prefix="test/")
+        test_blob_names = list_blobs(args.account_name, args.container_name, prefix=_TEST_BLOB_PREFIX)
 
         if not test_blob_names:
             print("No test blobs found to delete")

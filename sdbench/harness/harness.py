@@ -179,7 +179,7 @@ def _parse_case_ids(raw_arg: list[str] | str) -> list[str]:
     else:
         # Single value
         if ',' in str(raw_arg):
-            return list([piece.strip() for piece in str(raw_arg).split(',') if piece.strip()])
+            return [piece.strip() for piece in str(raw_arg).split(',') if piece.strip()]
         else:
             return [raw_arg.strip()]
 
@@ -491,7 +491,6 @@ def run(config: HarnessConfig, json_dir: str, completed_cases: set[tuple[str, in
 
         # Initialize progress bar for parallel processing
         pbar = tqdm(total=len(remaining_work), desc="Processing cases", unit="case")
-        completed_tasks = 0
 
         # Process results as they complete (not in submission order)
         for future in concurrent.futures.as_completed(future_to_case):
@@ -499,7 +498,6 @@ def run(config: HarnessConfig, json_dir: str, completed_cases: set[tuple[str, in
             result = future.result()
             results.append(result)
 
-            completed_tasks += 1
             status = "✓" if result["correct"] else "✗"
 
             # Calculate accuracy percentage so far

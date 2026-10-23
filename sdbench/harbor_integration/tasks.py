@@ -22,6 +22,7 @@ from typing import Any, Mapping
 
 import yaml
 
+from sdbench.isolation.common import write_json
 
 HARBOR_VERSION = "0.24.0"
 AGENT_TIMEOUT_SECONDS = 1800
@@ -52,11 +53,9 @@ httpcore==1.0.9
 httpx==0.28.1
 idna==3.18
 jiter==0.15.0
-numpy==2.4.6
 openai==2.44.0
 pydantic==2.13.4
 pydantic-core==2.46.4
-python-dotenv==1.2.2
 pyyaml==6.0.3
 sniffio==1.3.1
 tqdm==4.68.3
@@ -70,11 +69,6 @@ RUN pip install --no-cache-dir --no-deps -r /tmp/requirements.txt && pip check
 WORKDIR /app
 COPY sdbench /app/sdbench
 """
-
-
-def _write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n")
 
 
 def _check_no_credentials(value: Any, path: str = "trial_config") -> None:
@@ -96,7 +90,7 @@ def _copy_code(destination: Path, *, public: bool) -> None:
         if not source.is_file() or source.is_symlink():
             continue
         relative = source.relative_to(_PACKAGE_ROOT)
-        if set(relative.parts) & {"_bundled_data", "__pycache__", "harbor_integration", "cli", "experiments"}:
+        if set(relative.parts) & {"_bundled_data", "__pycache__", "harbor_integration", "cli"}:
             continue
         if source.suffix not in {".py", ".yaml"}:
             continue
@@ -177,12 +171,10 @@ def build_task(
             raise ValueError(f"case.{field} must be present and nonempty")
     config.setdefault("api_mode", "mock")
     config.setdefault("diagnostic_agent", "baseline")
-    if config["diagnostic_agent"] not in {"baseline", "experimental_panel"}:
-        raise ValueError("Unsupported diagnostic_agent")
+    if config["diagnostic_agent"] != "baseline":
+        raise ValueError("Only the released baseline diagnostic_agent is supported")
     if config["api_mode"] not in {"mock", "live"}:
         raise ValueError("trial_config.api_mode must be 'mock' or 'live'")
-    if config["diagnostic_agent"] == "experimental_panel" and config.get("max_model_calls", 150) < 2:
-        raise ValueError("experimental_panel requires at least two model calls")
     _check_no_credentials(config)
     config["diagnosis_token"] = secrets.token_urlsafe(32)
     target = Path(destination).expanduser().resolve()
@@ -198,17 +190,14 @@ def build_task(
             directory.mkdir(parents=True)
             _copy_code(directory, public=public)
             (directory / ".dockerignore").write_text("**/__pycache__\n**/*.pyc\n.env\n")
-            requirements = _RUNTIME_REQUIREMENTS
-            if public and config["diagnostic_agent"] == "experimental_panel":
-                requirements = (Path(__file__).parent / "panel-requirements.txt").read_text()
-            (directory / "requirements.txt").write_text(requirements)
+            (directory / "requirements.txt").write_text(_RUNTIME_REQUIREMENTS)
         (main / "diagnosis-token").write_text(config["diagnosis_token"] + "\n")
         (main / "Dockerfile").write_text(
             _BASE_DOCKERFILE + "COPY diagnosis-token /run/diagnosis-token\n"
         )
         for directory in (gatekeeper, judge):
-            _write_json(directory / "private" / "trial.json", config)
-            _write_json(directory / "private" / "case.json", case_data)
+            write_json(directory / "private" / "trial.json", config)
+            write_json(directory / "private" / "case.json", case_data)
         (gatekeeper / "Dockerfile").write_text(
             _BASE_DOCKERFILE
             + "COPY private /private\n"
@@ -270,7 +259,7 @@ def build_task(
             "The authenticated gatekeeper session supplies the initial presentation. "
             "Save the final client output to /logs/artifacts/diagnosis.json.\n"
         )
-        _write_json(staging / "isolation.json", {
+        write_json(staging / "isolation.json", {
             "isolation": ISOLATION,
             "harbor_version": HARBOR_VERSION,
             "agent_build_context": "environment/diagnosis",

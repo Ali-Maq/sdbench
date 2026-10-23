@@ -1,132 +1,81 @@
-# What has actually been verified
+# Verification and known limits
 
-These checks were run locally on October 22, 2026. They establish execution and
-inspection behavior for the named configurations. They do not establish clinical
-validity or equivalence to the unpublished original MAI-DxO implementation.
+Checks below were run on October 22, 2026 during [cleanup #2](https://github.com/Ali-Maq/sdbench/issues/2).
+They establish software execution, not clinical validity or equivalence to MAI-DxO.
+**No real patient was evaluated.**
+
+## Cleaned baseline
 
 | Check | Observed result |
 | --- | --- |
-| Python 3.12 unit/integration suite with Harbor, panel and tracing extras | 131 tests passed, no skips |
-| Released baseline through actual Docker + Harbor | Earlier 10/10 mock encounters completed; fresh post-review run completed 2/2, zero infrastructure exceptions |
-| Baseline HTTP transport comparison | Three scripted tests matched stock requests, model inputs, public transcripts and final diagnoses |
-| Earlier baseline Azure smoke artifacts | Two completed fictional encounters; saved judge scores 4/5 and 5/5, under different development configurations |
-| Experimental LangGraph panel through actual Docker + Harbor | 2/2 mock encounters completed, zero infrastructure exceptions; one paired fictional case |
-| Experimental panel with live Azure GPT-5.4 | One fictional encounter completed; judge score **2/5**, reward **0** |
-| Langfuse SDK tests | Real SDK exported parent/child observations to an in-memory OpenTelemetry collector |
-| Local Langfuse server readback | Live encounter metadata appeared as one parent plus eight API-attempt observations |
-| Distribution | Wheel built; panel code, pinned container requirements, and tracing exporter are included |
+| Clean Python 3.12 environment, all retained extras | 148 tests passed, no skips |
+| Python 3.11 source compilation | Passed |
+| Unused imports/variables and undefined-name checks | Ruff F401/F811/F821/F841 passed |
+| Wheel and source distribution | Built; restricted data and removed panel absent |
+| Wheel installed outside checkout on Python 3.11 | Five bundled cases loaded; baseline import and five CLI help entrypoints passed |
+| Actual Docker + Harbor 0.24 | 10/10 mock encounters completed, zero exceptions or retries |
+| Frozen paired summary | Five complete pairs; 40 mock calls, zero live calls; all three roles accounted for |
+| Native ATIF and local clinical report | Generated from the new run; diagnostic, gatekeeper and judge evidence retained |
+| Baseline transport parity | Three scripted comparisons match stock requests, model inputs, public transcripts and final diagnoses |
+| Optional Langfuse | SDK tests export parent/child observations to an in-memory collector; no server export in this cleanup |
 
-## Review corrections and remaining limitations
+The Docker run used the five bundled fictional cases, two mock conditions,
+five investigation turns and twelve model calls per role allowed. The fixed mock
+judge returns 3/5 and reward 0. These are transport fixtures, not a medical result.
+Mock token usage is unknown. No clinical-workup cost or provider invoice was measured.
 
-Public source was reviewed read-only with Claude Code, followed by a discussion
-of its findings. Reproducible findings were checked independently; review agreement
-is not test evidence. No patient files were supplied to that review.
+Use the [README quickstart](../README.md#run-a-fictional-smoke-test) to reproduce
+this path. The local job is named `cleanup-baseline-20261022`; private/generated
+artifacts are not committed. Task manifests retain exact source, prompt,
+dependency, image and configuration hashes. GitHub Actions tests Python 3.11/3.12
+and checks the wheel outside the checkout without calling models.
 
-- Fixed report labels that treated `is_synthetic=False` as verified recorded
-  evidence. Regression tests cover the upstream parser's missing-tag and missing-result
-  fallbacks, plus missing/invalid saved flags. The upstream parser is unchanged.
-- Aligned the Harbor client's HTTP request timeout with the existing 1,800-second
-  encounter deadline; a gatekeeper request can legitimately include multiple
-  provider and formatting retries. Task/adapter tests check deadline consistency.
-- Added scripted stock-versus-HTTP baseline tests for request limits, forced final
-  diagnosis and malformed-response recovery. They do not establish live-model or
-  published-score equivalence.
-- Regenerated the saved fictional clinical report with corrected labels, preserving
-  its previous rendering and original evidence. No diagnosis was rerun for that edit.
+## Review and corrections
 
-The new Docker smoke used the released baseline on one fictional case under two
-mock conditions, with three investigation turns and eight model calls per role
-allowed. Both completed; fixed mock score 3/5 and reward 0 are expected.
+Claude Code reviewed public-source snapshots read-only before and after cleanup.
+Direct review and scripted regressions checked findings before changes. The second
+pass found no blocking regression, but identified a batch-name normalization edge
+case that was corrected. Reviewer agreement is not test evidence. Patient records,
+credentials and raw clinical artifacts were excluded.
 
-Failed encounters remain inspectable through trusted raw-call/event artifacts,
-but cannot yet produce the completed clinical report. The paired route is direct
-OpenAI; Azure is supported by the separate smoke launcher. Custom episodes,
-recorded-only evidence retrieval, one-shot conditions and evaluator ensembles
-remain unimplemented.
+The cleanup removes the experimental panel and its dependencies, obsolete
+publishing assets, duplicate documentation and unused helpers. It also corrects:
 
-## Earlier live baseline artifacts
+- Batch prices attributed by response position instead of test name, including
+  ambiguous and nonfinite prices.
+- Cumulative CLI turn counts and overly broad Azure test-blob cleanup.
+- Duplicate executor caching that could return a closed executor after shutdown.
+- Retrying an exhausted role budget and misclassifying internal failures as bad requests.
+- Analysis without a frozen schedule, which could omit entirely missing pairs.
 
-Reinspection of the saved `azure-gpt54-smoke` and `azure-gpt54-phase-aware`
-artifacts confirmed completed live synthetic encounters, the released baseline's
-system prompt, and judge scores 4/5 and 5/5 respectively. These predate the panel
-run and used different development configurations. They are not independent
-patient samples or a controlled baseline-versus-panel comparison. No additional
-live call was made during this review.
+## Remaining issues
 
-## Live panel encounter configuration and outcome
+| Issue | Scope and current consequence |
+| --- | --- |
+| [#7](https://github.com/Ali-Maq/sdbench/issues/7): pricing-cache identity | Optional stock cache omits pricing-source inputs; keep it disabled across source changes |
+| [#8](https://github.com/Ali-Maq/sdbench/issues/8): partial clinical totals | Failed prices can leave a subtotal in raw results; inspect per-test errors before comparison |
+| [#10](https://github.com/Ali-Maq/sdbench/issues/10): shared provider settings | Stock routing can mutate nested caller/default settings across calls |
+| [#11](https://github.com/Ali-Maq/sdbench/issues/11): stock resume | Nonnumeric IDs and valid diagnoses containing “error” can be rerun |
 
-The live smoke used bundled synthetic case `0`, the `experimental_panel` policy,
-and the same GPT-5.4 deployment for diagnosis, gatekeeper, and judge. The provider
-route was Azure's Responses API. Its limits were three investigation turns, eight
-model calls per role, and 4,096 completion tokens per call (including reasoning).
-The gatekeeper used `v6_fixed`; the judge used `v3_reasoning`.
+The latter two affect the stock harness/provider path, not Harbor's separate
+provider implementation and recovery. Clinical costing is not integrated into
+Harbor. Failed encounters have raw evidence but no completed clinical HTML view.
+Semantic leakage, recorded-only retrieval, longitudinal episode preparation,
+one-shot controls and evaluator ensembles remain unimplemented or unevaluated.
+See the [study plan](STUDY_PROTOCOL.md) before interpreting this as clinical readiness.
 
-The saved run contained four diagnostic calls, three gatekeeper calls, and one
-judge call: **eight provider attempts and 52,005 total reported tokens**. All
-three investigation turns were used before the forced final-answer step. The
-judge marked the diagnosis incorrect, at **2/5**. This result is retained rather
-than rerunning until the example succeeds. A short integration smoke is not a
-comparison of diagnostic strategies, nor evidence that more turns would have
-changed the result.
+## Historical fictional runs
 
-The saved dialogue also contains two gatekeeper requests for a more specific
-test request. This is an observable interaction issue to examine before clinical
-evaluation; successful transport does not imply that every request was useful.
+Earlier baseline Azure runs saved judge scores of 4/5 and 5/5 under different
+development configurations. They are not a controlled comparison.
 
-The complete visible dialogue, reference answer, and judge explanation were
-rendered with the existing SDBench HTML reporter. Harbor retained the diagnostic
-ATIF trajectory and protected role artifacts. No real patient record was used.
+The removed experimental panel completed one live fictional encounter at **2/5,
+reward 0**, with eight provider attempts and 52,005 reported tokens. Its historical
+adapter label was `sdbench-isolated-baseline`; the frozen manifest and transcript
+identify `experimental_panel`. The unfavorable result is retained in local
+artifacts and Git history. It is neither original MAI-DxO nor a patient evaluation.
 
-Clinical-workup costs were not calculated. API charges were not reconciled with
-Azure billing. Unknown dollars remain unknown; token counts are not an invoice.
-
-The saved live trial retains the older Harbor adapter label
-`sdbench-isolated-baseline`; its frozen manifest, diagnostic transcript, and clinical
-report identify the actual policy as `experimental_panel`. The adapter is now
-named `sdbench-isolated` for new runs. Historical execution artifacts were not
-rewritten to change their labels.
-
-## Mock checks
-
-The mock backend returns fixed transport-test responses. Its judge deliberately
-returns score 3 and reward 0. Both baseline and panel mock runs therefore had zero
-clinical rewards despite successful execution. This is expected and is not a
-measurement of medical accuracy. The baseline run was frozen before the panel
-extension; the panel was tested separately afterward.
-
-## Trace scope
-
-The Langfuse export contains allowlisted API metadata: role, status, attempt,
-reported token counts, recorded API latency, and hashed technical references.
-It contains no case narrative, test names, reference answer, prompts, or model
-conversation. Its span timestamps describe post-run export, not original model
-execution. Clinical dialogue remains in the local Harbor/SDBench artifacts.
-
-The actual run was exported to an existing local Langfuse 3.159.0 installation
-with compatible Python SDK 4.18.0. The public API confirmed nine observations,
-including eight API attempts. SDK flush alone is not treated as server acceptance.
-
-## Reproduce the checks
-
-Use the [Harbor quickstart](../README.md#try-harbor-without-model-api-calls) for the
-baseline, [panel commands](AGENT_EXTENSIONS.md) for the experimental policy, and
-[Azure smoke instructions](HARBOR_EXPERIMENT.md#live-azure-smoke-test) for a live
-synthetic encounter. Live calls require your own authorized deployment and incur
-provider charges. Exact versions are recorded in `uv.lock`; generated tasks also
-record code, configuration, prompt, image, and dependency hashes.
-
-Raw local artifacts, credentials, and private deployment settings are not
-published. GitHub Actions runs the nonclinical suite on Python 3.11 and 3.12;
-Harbor-only checks require Python 3.12. The workflow does not make model calls.
-
-## Research work still required
-
-- Obtain the authors' original MAI-DxO implementation and matching prompts if exact
-  workflow comparison is the goal. This experimental panel does not fill that provenance gap.
-- Define and review longitudinal episodes, information availability cutoffs, and
-  reference diagnoses before evaluating real patient records.
-- Run a preregistered paired gatekeeper comparison on authorized datasets with
-  fixed diagnostic policy, judge, limits, repeated attempts, and failure accounting.
-- Measure semantic disclosure and observation quality; container separation alone
-  does not establish that a gatekeeper response is free from leakage.
-- Add clinical-workup costing and reconcile API estimates with provider billing.
+That earlier encounter's metadata reached a local Langfuse server as one parent
+plus eight attempt observations. Export timestamps represented post-run export,
+not an execution waterfall. Clinical-workup costs were not calculated and API
+charges were not reconciled with billing. No live diagnosis was rerun during cleanup.

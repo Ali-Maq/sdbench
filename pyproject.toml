@@ -24,8 +24,6 @@ dependencies = [
 # Harbor itself requires Python 3.12; the core package remains Python 3.11+.
 # Install with `uv sync --python 3.12 --extra harbor`.
 harbor = ["harbor==0.24.0; python_version >= '3.12'"]
-# Experimental, paper-inspired diagnostic policy; not Microsoft's MAI-DxO release.
-panel = ["langgraph>=1.0,<2"]
 # Optional host-side export of scrubbed usage metadata; never required by agents.
 tracing = ["langfuse>=4,<5"]
 # CPT-code grounded costing (`--costing-method unified_cpt_llm`): fuzzy + vector
@@ -45,11 +43,12 @@ azure = [
     "azure-cosmos>=4.5.1",
 ]
 # All optional features.
-all = ["sdbench[cpt_costing,azure]"]
+all = ["sdbench[cpt_costing,azure,harbor,tracing]"]
 
 [project.urls]
-Homepage = "https://microsoft.github.io/sdbench"
-Repository = "https://github.com/microsoft/sdbench"
+Homepage = "https://github.com/Ali-Maq/sdbench"
+Repository = "https://github.com/Ali-Maq/sdbench"
+Upstream = "https://github.com/microsoft/sdbench"
 "Paper" = "https://www.science.org/doi/10.1126/science.aeh7930"
 
 [tool.hatch.build.targets.wheel]

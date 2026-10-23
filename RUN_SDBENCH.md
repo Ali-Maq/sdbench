@@ -1,98 +1,139 @@
-# Run SDBench
+# Run the released SDBench harness
 
-Follow this workflow when a user asks to run SDBench or continue an evaluation.
-A request such as `Run SDBench on <model>` is enough to get started. Help the user
-through baseline evaluation, grounded costing, and verified results.
+This guide covers the original in-process runner. For isolated execution, use
+the [Harbor guide](docs/HARBOR_EXPERIMENT.md). Model calls incur provider charges.
 
-Use the [README](README.md), [dataset READMEs](data/processed_case_data/),
-[costing data guide](data/costing_data/README.md), CLI help, and relevant code as
-the source of truth. Discover supported settings rather than assuming particular
-model, dataset, split, or configuration values.
+```bash
+uv sync
+```
 
-## 1. Establish the run
+Provide credentials through your environment or a local `.env` file; the CLI loads `.env` automatically. Credentials belong in the local environment, never in prompts or committed files.
 
-Reuse anything the user has already specified. Ask for the missing model,
-dataset, splits, and named configuration, presenting valid options with short
-descriptions and relevant compatibility constraints. Show which documented
-datasets are installed; do not limit choices to installed datasets. Discover
-actual split names and counts through the dataset loader when available.
-Resolve a model's friendly name to its provider ID and check availability;
-show plausible matches if ambiguous rather than selecting one silently.
+```bash
+# Inspect available cases and splits.
+uv run python -m sdbench.cli.case_data synthetic --list-only
 
-Invite optional overrides in one concise question: model arguments, provider
-routing, credential environment-variable names, concurrency, repetitions,
-costing settings, and caching. Explain the repository defaults and let the
-user accept them without answering every optional field. Summarize the
-effective run plan and proceed once required choices are resolved.
+# Run one fictional case with the baseline.
+uv run python -m sdbench.cli.agent synthetic 0 --agent baseline --model <model>
 
-## 2. Prepare the environment and credentials
+# Run the synthetic training set.
+uv run python -m sdbench.cli.harness \
+  --dataset synthetic --case-set train --agent baseline --model <model>
 
-Follow the README to install dependencies and required optional extras.
-Check the environment and `.env` for the variables required by the chosen
-evaluation and costing settings, without displaying their values. If anything
-is missing, identify the variable names and file location, provide empty
-placeholders if helpful, and ask the user to populate `.env` locally. Never ask
-for API keys, tokens, or passwords in chat. Revalidate after they have edited
-the file, including small nonclinical authentication/routing checks.
+# Resume a saved harness run.
+uv run python -m sdbench.cli.harness --resume <results-directory>
 
-## 3. Install or validate the dataset
+# Full flag reference.
+uv run python -m sdbench.cli.harness --help
+```
 
-Follow the selected dataset's README and respect any configured data-root
-override. For [NEJM](data/processed_case_data/nejm/README.md), explain the
-licensing/access instructions and where the supplied dataset file belongs.
-For [MIMIC](data/processed_case_data/mimic/README.md), guide PhysioNet access
-requirements and help download the dataset using the documented commands.
-Use an existing authenticated session or a password prompt in the user's
-terminal; if an interactive step cannot be performed here, give the exact
-command for the user to run. Validate the downloaded file and requested splits
-through the loader. Continue independent setup while waiting for access or
-user input.
+Use `--case-id <id> [<id> ...]` or `--num-cases N` to select a subset, and `--max-workers N` to control parallelism.
 
-## 4. Prepare grounded costing
+### Model providers & environment variables
 
-Locate the documented charge-master source. If the costing data is absent,
-download it when accessible, install missing dependencies, and validate the
-file against the costing code's requirements. If unavailable, explain the
-specific manual step needed. Check costing-model and embedding credentials
-independently, including environment-loading behavior. Initialize and reuse
-valid search indexes and any requested pricing cache; verify cache access
-before depending on it. Resolve costing prerequisites before the full run
-where possible.
+The stock harness routes calls through [`models.py`](sdbench/models.py). The Harbor adapter has a narrower, metered provider path; stock routing settings do not automatically apply to Harbor.
 
-## 5. Run the evaluation and then costing
+| Variable | Purpose |
+| --- | --- |
+| `OPENROUTER_API_KEY` | Credentials for the default OpenRouter route |
+| `SDBENCH_FORCE_AZURE=1` | Route stock-harness calls through Azure OpenAI |
+| `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_VERSION` | Azure credentials and API settings |
+| `SDBENCH_OPENROUTER_ZDR_ONLY=0` | Permit non-zero-data-retention providers when the dataset permits |
+| `SDBENCH_LOCAL_BASE_URL`, `SDBENCH_LOCAL_API_KEY`, `SDBENCH_LOCAL_HEADERS` | Endpoint, optional key, and JSON headers for models named `local-...` |
+| `SDBENCH_DATA_PATH` | Data root; defaults to `./data` |
+| `SDBENCH_LOCAL_DIR` | Local prompt/agent/config override root; defaults to the current directory. Set to `disable` to use packaged definitions only |
+| `OPENAI_API_KEY` | Stock CPT-costing embedding fallback when OpenRouter is unset; also the separate Harbor adapter's direct OpenAI credential |
 
-Use the packaged baseline agent, selected configuration, and agreed overrides.
-Run exactly the selected cases and repetitions, deduplicating combined splits
-and retaining original split membership for reporting. Save the effective
-configuration, input identities, logs, and checkpoints in a run directory.
-Use resumable execution. On a continuation request, locate the matching run
-and its saved configuration before starting new work. Give periodic, concise
-updates showing completed, remaining, and failed cases, elapsed time, and
-any blockers.
+For local inference, the full model name, including `local-`, is sent to the server. The default local API key is the placeholder `sk-local`; `SDBENCH_LOCAL_HEADERS` accepts JSON headers and overrides that authorization header when supplied.
 
-Defer cost computation during evaluation, then apply the repository's grounded
-costing workflow to the saved results, preserving the diagnostic results.
-Give costing progress separately, including priced versus pending work,
-grounded matches, model fallbacks, and failures. Reuse valid completed
-costing work.
+```bash
+export SDBENCH_LOCAL_BASE_URL=http://localhost:8000/v1
+uv run python -m sdbench.cli.harness --model local-my-model
+```
 
-## 6. Recover and continue
+For Azure, `--model` normally identifies the deployment name; a few legacy aliases are mapped in `models.py`:
 
-Investigate failures using logs and saved artifacts. Fix dependency,
-environment, and runtime problems; retry transient errors with backoff and
-adjust concurrency when appropriate. Resume unfinished or failed work without
-repeating successful cases or discarding valid costs. Keep the agreed model,
-dataset, evaluation configuration, and routing intact during recovery. Ask
-only when a required access step or substantive run-setting change needs the
-user's decision. Clearly explain unresolved blockers and how to resume.
+```bash
+export SDBENCH_FORCE_AZURE=1
+uv run python -m sdbench.cli.harness --model <azure-deployment>
+```
 
-## 7. Verify and report
+`--model-args` accepts a JSON object merged into diagnostic-model calls:
 
-Check saved results rather than relying on exit status: expected unique cases
-and repetitions, valid judged outcomes, complete cost analyses, and unresolved
-failures. Regenerate the repository's reports, explicitly including any
-combined case-set names. Present accuracy and grounded workup costs for each
-requested split and their pooled result, available uncertainty estimates,
-grounded/fallback/failure counts, and paths to reports and machine-readable
-results. Distinguish estimated clinical workup charges from provider API spend.
-State clearly whether the requested work is complete or what remains.
+```bash
+uv run python -m sdbench.cli.harness --model <model> \
+  --model-args '{"reasoning_effort": "high"}'
+```
+
+Routing overrides `force_azure`, `openrouter_zdr_only`, `local_model_base_url`, `local_model_api_key`, and `local_model_headers` are intercepted rather than sent as generation arguments. When importing SDBench as a library, load environment variables yourself; only the CLI loads `.env` automatically. Library callers should also choose an explicit local-override directory or set `SDBENCH_LOCAL_DIR=disable`.
+
+### Published baseline configuration
+
+Named configurations in [`config.py`](sdbench/config.py) pin the gatekeeper and judge:
+
+| Configuration | Use |
+| --- | --- |
+| `default` | Current defaults; NEJM-style gatekeeper for synthetic and other non-MIMIC datasets |
+| `science` | Published baseline settings for `nejm` and `mimic`; not an MAI-DxO implementation |
+
+To evaluate a baseline with the published configuration, obtain the corresponding dataset and use its `validationandtest` split:
+
+```bash
+uv run python -m sdbench.cli.harness \
+  --dataset <nejm-or-mimic> --case-set validationandtest \
+  --agent baseline --sdbench-config science --model <model>
+```
+
+Matching a configuration alone does not reproduce a result: the dataset/split, model version, provider settings, and costing method also matter.
+
+### Stock-harness clinical costing
+
+The stock harness defaults to LLM-estimated test costs using `gpt-5-mini` (overridable with `--costing-model`). Use `--no-compute-costs` to skip costing. For the paper's grounded method, configure the public hospital charge master as described in [costing data setup](data/costing_data/README.md), then run:
+
+```bash
+uv run --extra cpt_costing python -m sdbench.cli.recost <results-directory>
+```
+
+This writes costs back to the case results and reports CPT-grounded matches versus LLM fallbacks. Review that coverage before comparing costs. LLM-only estimates and grounded estimates are different measurements.
+
+Two inherited limitations remain: the optional cache does not include all pricing
+inputs in its identity ([#7](https://github.com/Ali-Maq/sdbench/issues/7)), and a
+failed test-price lookup can leave a partial subtotal in raw results
+([#8](https://github.com/Ali-Maq/sdbench/issues/8)). Keep the cache disabled when
+changing pricing sources and inspect per-test errors before interpreting totals.
+
+```bash
+# Recompute already priced cases.
+uv run --extra cpt_costing python -m sdbench.cli.recost <results-directory> --force
+
+# Inspect existing costing coverage without recomputing.
+uv run --extra cpt_costing python -m sdbench.cli.recost <results-directory> --analyze-only
+
+# Use LLM-only costing.
+uv run python -m sdbench.cli.recost <results-directory> --costing-method llm_only
+```
+
+Grounded costing can also run inline with `--costing-method unified_cpt_llm`. The optional `azure` extra supports Blob output and a CosmosDB costing cache. Install extras with `uv sync --extra <name>` or `uv sync --all-extras`; consult CLI `--help` for cache and managed-identity settings.
+
+### Stock-harness reports
+
+Each run saves case JSON, HTML, a summary, and `run_config.json` under `results/`. Regenerate reports from saved outputs without rerunning diagnosis:
+
+```bash
+uv run python -m sdbench.cli.reporting <results-directory> --ci --json report.json
+```
+
+The reporter also accepts multiple result directories from the same dataset. It groups by `(agent, model)` and reports accuracy and each available costing method. The stock reporter excludes errored/incomplete cases from accuracy and flags them. The paired Harbor analysis instead counts missing/failed scheduled attempts as incorrect in its primary accuracy, while also reporting completed-only accuracy. State the denominator when comparing results.
+
+
+## Before a real evaluation
+
+Confirm the dataset/split, model/provider, named configuration and any overrides.
+Use authorized data and keep records, credentials and output inside the permitted
+research environment. Capture the effective settings and use `--resume` for
+unfinished runs rather than silently changing the protocol.
+
+For a cost comparison, configure the documented charge-master source and check
+coverage before evaluation. The adapter does not yet run clinical costing.
+Report scheduled, completed and failed cases, pricing coverage and unknown API
+charges separately. A fictional smoke test is an execution check only.

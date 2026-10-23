@@ -16,9 +16,24 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python }}
-      - name: Install optional graph and tracing dependencies
-        run: uv sync --frozen --extra panel --extra tracing --extra harbor
+      - name: Install retained runtime and tracing dependencies
+        run: uv sync --frozen --extra tracing --extra harbor
       - name: Compile and test without model calls
         run: |
           uv run --no-sync python -m compileall -q sdbench
           uv run --no-sync python -m unittest discover -s tests -v
+      - name: Build distributions
+        run: uv build
+      - name: Check the installed wheel outside the checkout
+        run: |
+          uv venv "$RUNNER_TEMP/wheel-venv"
+          uv pip install --python "$RUNNER_TEMP/wheel-venv/bin/python" dist/*.whl
+          cd "$RUNNER_TEMP"
+          SDBENCH_LOCAL_DIR=disable "$RUNNER_TEMP/wheel-venv/bin/python" - <<'PY'
+          from importlib.util import find_spec
+          from sdbench.agents import baseline
+          from sdbench.case_data import get_case_set
+          assert len(get_case_set("synthetic", "train")) == 5
+          assert callable(baseline.run)
+          assert find_spec("sdbench.agents.experimental_panel") is None
+          PY

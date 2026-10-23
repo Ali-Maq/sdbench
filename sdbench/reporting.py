@@ -324,7 +324,6 @@ def generate_cost_analysis(results: List[Dict[str, Any]], config: HarnessConfig)
     # Process cost analysis for each method
     for method in methods:
         all_cost_analyses = get_cost_analyses_for_method(results, method)
-        all_cost_analyses_true = get_true_cost_analyses_for_method(results, method)
 
         if not all_cost_analyses:
             continue

@@ -56,7 +56,6 @@ def public_service(outputs: list[str], *, max_turns: int = 1, max_model_calls: i
                 return self.send_json(200, {
                     "case_summary": "Public presentation only",
                     "diagnostic_agent": diagnostic_agent,
-                    "max_model_calls": max_model_calls,
                     "max_turns": max_turns,
                     "turns_left": state["turns_left"],
                 })
@@ -259,6 +258,18 @@ class DiagnosisWorkerTests(unittest.TestCase):
 
 
 class JudgeWorkerTests(unittest.TestCase):
+    def test_judge_call_limit_fails_without_retry_backoff(self):
+        from sdbench.models import ModelCallLimitError
+
+        config, case, events = fixtures()
+        llm = Mock(side_effect=ModelCallLimitError("Budget exhausted"))
+        with patch("sdbench.models.time.sleep") as sleep:
+            result = judge.grade_trial(config, case, events, llm=llm)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_type"], "ModelCallLimitError")
+        llm.assert_called_once()
+        sleep.assert_not_called()
+
     def test_valid_evidence_uses_released_prompt_and_records_mock_label(self):
         from openai.types.chat import ChatCompletion
 
@@ -462,23 +473,11 @@ class JudgeWorkerTests(unittest.TestCase):
 
 class DiagnosticPolicySelectionTests(unittest.TestCase):
     def test_unknown_policy_fails_before_model_or_test_requests(self):
-        with public_service([], diagnostic_agent="untrusted_module") as (url, state):
-            with self.assertRaises(diagnosis.RemoteProtocolError):
-                diagnosis.run_diagnosis(url, "diagnosis-role-token")
-            self.assertEqual([path for path, *_ in state["requests"]], ["/session"])
-
-    @unittest.skipUnless(__import__("importlib.util", fromlist=["find_spec"]).find_spec("langgraph"), "optional panel dependency")
-    def test_panel_uses_same_remote_test_and_submission_boundary(self):
-        with public_service(["<test>CBC</test>", "<diagnosis>Condition A</diagnosis>"],
-                            max_turns=2, diagnostic_agent="experimental_panel") as (url, state):
-            report = diagnosis.run_diagnosis(url, "diagnosis-role-token")
-            self.assertEqual(report["diagnostic_agent"], "experimental_panel")
-            self.assertEqual(report["diagnosis"], "Condition A")
-            self.assertEqual(report["submission"], {"accepted": True})
-            paths = [path for path, *_ in state["requests"]]
-            self.assertIn("/tests", paths)
-            self.assertEqual(paths[-1], "/diagnosis")
-            self.assertGreaterEqual(len(report["graph_events"]), 2)
+        for policy in ("untrusted_module", "experimental_panel"):
+            with self.subTest(policy=policy), public_service([], diagnostic_agent=policy) as (url, state):
+                with self.assertRaisesRegex(diagnosis.RemoteProtocolError, "baseline diagnostic agent"):
+                    diagnosis.run_diagnosis(url, "diagnosis-role-token")
+                self.assertEqual([path for path, *_ in state["requests"]], ["/session"])
 
 
 if __name__ == "__main__":

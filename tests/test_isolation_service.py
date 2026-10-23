@@ -2,6 +2,7 @@ import json
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -44,7 +45,7 @@ class ServiceBoundaryTests(unittest.TestCase):
     def test_public_session_does_not_expose_private_record(self):
         status, body = self.request("/session")
         self.assertEqual(status, 200)
-        self.assertEqual(set(body), {"case_summary", "max_turns", "turns_left", "diagnostic_agent", "max_model_calls"})
+        self.assertEqual(set(body), {"case_summary", "max_turns", "turns_left", "diagnostic_agent"})
         self.assertNotIn("PRIVATE_", json.dumps(body))
         self.assertNotIn("token", json.dumps(body))
 
@@ -86,9 +87,50 @@ class ServiceBoundaryTests(unittest.TestCase):
         events = [json.loads(line) for line in (Path(self.temp.name) / "events.jsonl").read_text().splitlines()]
         self.assertEqual(events[-1]["status"], "failed")
 
+    def test_gatekeeper_call_limit_fails_without_retry_backoff(self):
+        self.service.runner._llm.max_calls = 1
+        self.assertEqual(self.request("/tests", {"test_names": ["Test to order: CBC"]})[0], 200)
+        with patch("sdbench.models.time.sleep") as sleep:
+            status, response = self.request("/tests", {"test_names": ["Test to order: Albumin"]})
+        self.assertEqual(status, 503)
+        sleep.assert_not_called()
+        self.assertNotIn("PRIVATE_", json.dumps(response))
+        events = [json.loads(line) for line in (Path(self.temp.name) / "events.jsonl").read_text().splitlines()]
+        self.assertEqual(events[-1]["status"], "failed")
+        self.assertEqual(events[-1]["error_type"], "ModelCallLimitError")
+
+    def test_internal_value_error_fails_encounter_instead_of_rejecting_client(self):
+        with patch.object(self.service, "diagnosis_model", side_effect=ValueError("PRIVATE_INTERNAL_MARKER")):
+            status, response = self.request("/model", {"messages": [{"role": "user", "content": "Fixture"}]})
+        self.assertEqual(status, 503)
+        self.assertNotIn("PRIVATE_INTERNAL_MARKER", json.dumps(response))
+        self.assertTrue(self.service.closed)
+        events = [json.loads(line) for line in (Path(self.temp.name) / "events.jsonl").read_text().splitlines()]
+        self.assertEqual(events[-1]["status"], "failed")
+        self.assertEqual(events[-1]["error_type"], "ValueError")
+        self.assertNotIn("PRIVATE_INTERNAL_MARKER", json.dumps(events))
+
+    def test_invalid_request_encoding_is_400_and_does_not_close_encounter(self):
+        for body, length in ((b"{", "1"), (b"\xff", "1"), (b"[]", "2"), (b"{}", "invalid")):
+            headers = {"Authorization": "Bearer " + self.config["diagnosis_token"],
+                       "Content-Length": length}
+            with self.subTest(body=body, length=length), self.assertRaises(HTTPError) as raised:
+                urlopen(Request(self.url + "/model", data=body, headers=headers), timeout=3)
+            self.assertEqual(raised.exception.code, 400)
+            raised.exception.close()
+        self.assertFalse(self.service.closed)
+        self.assertEqual(self.service.diagnosis_model.calls, 0)
+
     def test_reusing_evidence_directory_fails(self):
         with self.assertRaisesRegex(ValueError, "Refusing to reuse"):
             TrialService(self.config, self.case, self.temp.name)
+
+    def test_removed_policy_cannot_start_a_backend(self):
+        with patch("sdbench.isolation.service.build_backend") as backend:
+            with self.assertRaisesRegex(ValueError, "baseline diagnostic_agent"):
+                TrialService({**self.config, "diagnostic_agent": "experimental_panel"},
+                             self.case, Path(self.temp.name) / "removed-policy")
+        backend.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ import httpx
 from openai import OpenAI
 
 from sdbench.isolation import providers
+from sdbench.models import ModelCallLimitError, call_llm_with_retry
 
 
 AZURE_BASE = "https://aif-shajam-ari-nonprod-eus2-01.cognitiveservices.azure.com/openai/v1/"
@@ -96,6 +97,18 @@ class AzureResponsesTests(unittest.TestCase):
 
     def raw(self):
         return [json.loads(line) for line in (self.root / "raw_calls.jsonl").read_text().splitlines()]
+
+    def test_exhausted_call_budget_does_not_retry_or_create_a_provider_attempt(self):
+        backend = self.backend(config={**self.config, "max_model_calls": 1})
+        messages = [{"role": "user", "content": "Fixture"}]
+        call_llm_with_retry(backend, messages=messages)
+        with patch("sdbench.models.time.sleep") as sleep:
+            with self.assertRaises(ModelCallLimitError):
+                call_llm_with_retry(backend, messages=messages)
+        sleep.assert_not_called()
+        self.assertEqual(backend.calls, 1)
+        self.assertEqual(len(self.requests), 1)
+        self.assertEqual(len(self.ledger()), 1)
 
     def test_completed_response_adapts_text_usage_and_translates_arguments(self):
         backend = self.backend()

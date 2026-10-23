@@ -61,11 +61,8 @@ class RemoteTestRunner:
             raise RemoteProtocolError("Service did not supply a case presentation")
         self.case_summary = summary
         self.diagnostic_agent = session.get("diagnostic_agent", "baseline")
-        if self.diagnostic_agent not in {"baseline", "experimental_panel"}:
-            raise RemoteProtocolError("Unsupported diagnostic agent in service session")
-        self.max_model_calls = _integer(session.get("max_model_calls", 150), "max_model_calls")
-        if self.diagnostic_agent == "experimental_panel" and self.max_model_calls < 2:
-            raise RemoteProtocolError("Experimental panel requires at least two model calls")
+        if self.diagnostic_agent != "baseline":
+            raise RemoteProtocolError("Only the released baseline diagnostic agent is supported")
         self._max_turns = _integer(session.get("max_turns"), "max_turns")
         self._turns_left = _integer(session.get("turns_left"), "turns_left")
         if self._turns_left > self._max_turns:
@@ -184,7 +181,7 @@ class RemoteTestRunner:
 
 
 def run_diagnosis(url: str, token: str, *, timeout: float = 180.0) -> dict[str, Any]:
-    """Execute the trial-selected packaged agent; never load arbitrary local code."""
+    """Execute the released baseline through the isolated service."""
     from sdbench.agents import baseline
     from sdbench.config import AgentConfig
 
@@ -196,14 +193,9 @@ def run_diagnosis(url: str, token: str, *, timeout: float = 180.0) -> dict[str, 
         max_turns=runner.max_turns,
         max_questions_per_turn=None,
         max_tests_per_turn=None,
-        agent_extra_args=({"max_panel_calls": str(min(2 * runner.max_turns, runner.max_model_calls - 1))}
-                          if runner.diagnostic_agent == "experimental_panel" else {}),
+        agent_extra_args={},
     )
-    agent = baseline
-    if runner.diagnostic_agent == "experimental_panel":
-        from sdbench.agents import experimental_panel
-        agent = experimental_panel
-    diagnosis = agent.run(
+    diagnosis = baseline.run(
         case_summary=runner.case_summary,
         test_runner=runner,
         agent_llm=runner.chat_completion,
@@ -214,8 +206,6 @@ def run_diagnosis(url: str, token: str, *, timeout: float = 180.0) -> dict[str, 
     return {
         "status": "completed",
         "diagnostic_agent": runner.diagnostic_agent,
-        "agent_metadata": collector.get("agent_metadata", {}),
-        "graph_events": collector.get("graph_events", []),
         "diagnosis": diagnosis,
         "turns_left": runner.turns_left,
         "agent_messages": collector.get("agent_messages", []),

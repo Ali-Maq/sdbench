@@ -73,6 +73,10 @@ AZURE_MODEL_MAP = {
 _F = TypeVar("_F", bound=Callable[..., Any])
 
 
+class ModelCallLimitError(RuntimeError):
+    """A fixed model-call budget is exhausted; waiting or retrying cannot restore it."""
+
+
 def _calculate_retry_delay(
     delay: float, backoff_factor: float, max_delay: float, jitter: bool
 ) -> tuple[float, float]:
@@ -139,6 +143,8 @@ def _retry_with_backoff(
             while True:
                 try:
                     return func(*args, **kwargs)
+                except ModelCallLimitError:
+                    raise
                 except retryable_errors as e:
                     retry_count += 1
                     if retry_count > max_retries:
@@ -188,6 +194,8 @@ def _retry_with_backoff_async(
             while True:
                 try:
                     return await func(*args, **kwargs)
+                except ModelCallLimitError:
+                    raise
                 except retryable_errors as e:
                     retry_count += 1
                     if retry_count > max_retries:
