@@ -9,10 +9,10 @@ They establish software execution, not clinical validity or equivalence to MAI-D
 
 | Check | Observed result |
 | --- | --- |
-| Python 3.12, all optional integrations | 217 tests passed, no skips |
-| Python 3.11, compatible optional integrations | 210 passed; seven Harbor-only tests skipped because Harbor requires Python 3.12 |
+| Python 3.12, all optional integrations | 226 tests passed, no skips |
+| Python 3.11, compatible optional integrations | 219 passed; seven Harbor-only tests skipped because Harbor requires Python 3.12 |
 | Python 3.11 compilation; Ruff F401/F811/F821/F841; whitespace | Passed |
-| Pricing regressions | Partial/all-failed/zero totals, legacy missing coverage, report/recost denominators and pricing exceptions preserving diagnoses |
+| Pricing regressions | Partial/all-failed/zero totals, legacy missing coverage, report/recost denominators and pricing exceptions preserving diagnoses; actual-workup-only reporting |
 | Cache regressions | Effective routing/source identity, local FAISS rebuild/reuse, transient failure recovery, corrupt caches and interrupted/concurrent atomic writes |
 | Routing/resume regressions | Sequential and concurrent argument isolation, endpoint/credential changes, string IDs, malformed/mismatched records and completed pricing failures |
 | Browser inspection | Fictional partial-price report expands correctly; complete totals stay Unknown while known subtotal and unpriced tests remain visible |
@@ -22,8 +22,8 @@ They establish software execution, not clinical validity or equivalence to MAI-D
 
 Provider calls in these tests are scripted. They validate execution and failure
 handling, not the medical correctness of a price, diagnosis or judge score.
-The final job is `followups-final-20261022`. Its frozen runtime source hash
-`9ab76cba83ffdec14c8656fb24547b8dac13aa38fed94ef81e2f5c664eab17f7` matches
+The final job is `followups-reviewed-20261022`. Its frozen runtime source hash
+`9eeb1afe6ae22eb7eceda4455894bd962b765924a1e0bef6e4cf5b3880ead89c` matches
 the verified checkout. Generated evidence stays outside source control.
 
 ## Original cleanup verification (02db899)
@@ -82,6 +82,10 @@ publishing assets, duplicate documentation and unused helpers. It also corrects:
 Pricing exceptions preserve completed diagnostic and judge evidence. Resume does
 not repeat those calls; recost retries missing pricing separately. Old records
 without declared pricing coverage or judge evidence are treated conservatively.
+Recost excludes incomplete diagnoses and replaces result files atomically, preserving
+existing diagnosis/judge evidence if writing is interrupted. Malformed CPT selection
+replies remain uncached failures; explicit no-match responses retain LLM fallback.
+Reports retain historical-workup costs even when agent costing is disabled.
 Report rows distinguish incomplete diagnoses from incorrect completed diagnoses.
 All aggregate clinical-cost reports use completed diagnoses, retain incomplete
 pricing in that population and disclose the excluded diagnostic failures.

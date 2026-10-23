@@ -46,6 +46,7 @@ import glob
 import json
 import os
 import sys
+import tempfile
 from typing import Any
 
 import dotenv
@@ -54,6 +55,7 @@ from tqdm import tqdm
 from sdbench.config import CostingConfig, SDBenchConfig
 from sdbench.costing.cost_types import CostsEstimate, cost_summary, valid_cost
 from sdbench.harness.harness import compute_agent_costs
+from sdbench.results import is_completed_result
 
 # cost_details["method"] values, grouped into the categories we report on. "cpt_lookup"
 # is the grounded charge-master match; everything LLM-based is a fallback estimate.
@@ -61,7 +63,7 @@ GROUNDED_METHOD = "cpt_lookup"
 LLM_METHODS = ("llm_fallback", "llm_only", "batch_llm_only")
 FAILURE_METHOD = "failure"
 TALLY_KEYS = ("grounded", "llm", "failed", "cases", "complete_cases", "partial_cases",
-              "unknown_cases", "unknown_coverage_cases")
+              "unknown_cases", "unknown_coverage_cases", "excluded_cases")
 
 
 def preflight_unified_costing(config: CostingConfig) -> None:
@@ -160,16 +162,23 @@ def recost_case(
     contains failures, or when ``force`` is set. With ``analyze_only`` nothing is
     recomputed and we simply report whatever is already stored.
     """
-    with open(case_file, "r") as f:
+    with open(case_file, "r", encoding="utf-8") as f:
         result = json.load(f)
+
+    if not isinstance(result, dict) or not is_completed_result(result):
+        print(f"\n{os.path.basename(case_file)}: excluded incomplete diagnosis.")
+        return {**dict.fromkeys(TALLY_KEYS, 0), "excluded_cases": 1}
 
     cost_key = f"cost_analysis_{config.costing_method}"
     existing = result.get(cost_key)
 
     if not analyze_only and (force or existing is None or has_cost_failures(existing)):
-        compute_agent_costs(result, config)
-        with open(case_file, "w") as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
+        try:
+            compute_agent_costs(result, config)
+            _replace_case_json(case_file, result)
+        except Exception as error:
+            print(f"\n{os.path.basename(case_file)}: pricing update failed; original file preserved: {error}")
+            return tally_methods(None)
         existing = result[cost_key]
 
     if not existing:
@@ -182,6 +191,18 @@ def recost_case(
         print(f"\n{os.path.basename(case_file)}: {summary['pricing_status']} clinical total; "
               f"{unpriced} unpriced unique tests.")
     return tally_methods(existing)
+
+
+def _replace_case_json(case_file: str, result: dict[str, Any]) -> None:
+    """Publish complete UTF-8 JSON without truncating the diagnosis on interruption."""
+    descriptor, temporary = tempfile.mkstemp(prefix=".recost-", suffix=".json", dir=os.path.dirname(case_file) or ".")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(result, stream, indent=2, ensure_ascii=False)
+        os.replace(temporary, case_file)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def print_breakdown(label: str, totals: dict[str, int], costing_method: str) -> None:
@@ -198,6 +219,7 @@ def print_breakdown(label: str, totals: dict[str, int], costing_method: str) -> 
     print("-" * len(label))
     print(f"  Cases: {totals['cases']}; complete: {totals['complete_cases']}; "
           f"partial: {totals['partial_cases']}; unknown: {totals['unknown_cases']}")
+    print(f"  Excluded incomplete or unreadable diagnoses: {totals['excluded_cases']}")
     if totals["unknown_coverage_cases"]:
         print(f"  Test coverage unknown for {totals['unknown_coverage_cases']} cases; "
               "percentages below describe only tests with known coverage.")
@@ -293,7 +315,7 @@ def main() -> None:
                 )
             except Exception as e:  # noqa: BLE001 - keep going across the rest of the run
                 print(f"\nError processing {case_file}: {e}")
-                counts = tally_methods(None)
+                counts = {**dict.fromkeys(TALLY_KEYS, 0), "excluded_cases": 1}
             for k in run_totals:
                 run_totals[k] += counts[k]
 

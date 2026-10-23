@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import pickle
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -320,6 +321,68 @@ class CPTFailureTests(unittest.TestCase):
         self.assertEqual(result["method"], "llm_fallback")
         self.assertEqual(result["cost"], 25)
         saved.assert_called_once()
+
+    def selection_result(self, text, finish_reason="stop"):
+        from sdbench.costing import costing
+        matcher = self.matcher()
+        candidate = {"cpt_code": "71046", "procedure_name": "Chest X-ray", "gross_charge": 25, "setting": "Both"}
+        matcher._df = cpt_matcher.pd.DataFrame({"Procedure Code (CPT / HCPCS)": ["71046"]})
+        matcher.combined_search = Mock(return_value=[candidate])
+        matcher.median_price = Mock(return_value=25)
+        response = SimpleNamespace(choices=[SimpleNamespace(
+            finish_reason=finish_reason, message=SimpleNamespace(content=text),
+        )])
+        with patch.object(costing, "get_cpt_fuzzy_matcher", return_value=matcher), \
+             patch.object(cache, "get_cached_cost", return_value=None), \
+             patch.object(cache, "set_cached_cost") as saved, \
+             patch.object(costing.llm_estimater, "cost_test", return_value={"cost": 40}) as fallback, \
+             patch.object(cpt_matcher, "create_chat_completion", return_value=response) as provider, \
+             patch("builtins.print"):
+            result = costing.estimate_unified_test_costs("Chest X-ray", matcher._config)
+        return result, saved, fallback, provider
+
+    def test_malformed_or_truncated_selection_never_caches_a_fallback_price(self):
+        replies = (
+            None, "", "REASONING: This might fit.",
+            "REASONING: This might fit.\nSELECTED_CPT:",
+            "REASONING: This might fit.\nSELECTED_CPT: 7104",
+            "REASONING: This might fit.\nSELECTED_CPT 71046",
+            "REASONING: Contradiction.\nSELECTED_CPT: NONE\nSELECTED_CPT: 71046",
+        )
+        for text in replies:
+            with self.subTest(text=text):
+                result, saved, fallback, _ = self.selection_result(text)
+                self.assertEqual(result["method"], "failure")
+                self.assertIsNone(result["cost"])
+                saved.assert_not_called()
+                fallback.assert_not_called()
+        result, saved, fallback, _ = self.selection_result(
+            "REASONING: This fits.\nSELECTED_CPT: 71046", finish_reason="length",
+        )
+        self.assertEqual(result["method"], "failure")
+        saved.assert_not_called()
+        fallback.assert_not_called()
+
+    def test_documented_no_match_and_unavailable_valid_code_preserve_fallback(self):
+        for selected in ("NONE", "99999"):
+            with self.subTest(selected=selected):
+                result, saved, fallback, provider = self.selection_result(
+                    f"REASONING: No suitable grounded match.\nSELECTED_CPT: {selected}",
+                )
+                self.assertEqual(result["method"], "llm_fallback")
+                self.assertEqual(result["cost"], 40)
+                saved.assert_called_once()
+                fallback.assert_called_once()
+                self.assertIn("SELECTED_CPT: NONE", provider.call_args.kwargs["messages"][1]["content"])
+
+    def test_complete_selection_still_uses_grounded_price(self):
+        result, saved, fallback, _ = self.selection_result(
+            "REASONING: Standard two-view chest X-ray.\nSELECTED_CPT: 71046",
+        )
+        self.assertEqual(result["method"], "cpt_lookup")
+        self.assertEqual(result["cost"], 25)
+        saved.assert_called_once()
+        fallback.assert_not_called()
 
 
 if __name__ == "__main__":

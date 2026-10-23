@@ -13,6 +13,7 @@ from sdbench.config import CostingConfig, HarnessConfig, SDBenchConfig
 from sdbench.costing import costing
 from sdbench.costing.cost_types import cost_summary
 from sdbench import reporting
+from sdbench.harness import harness
 
 
 def sd_config(**kwargs):
@@ -258,6 +259,55 @@ class CostReportingTests(unittest.TestCase):
                     self.assertIn("Complete cases: 1/3; partial: 1; unknown: 1", output.getvalue())
                     self.assertIn("Aggregate total cost: Unknown", output.getvalue())
 
+    def test_historical_only_computation_is_visible_on_every_report_surface(self):
+        config = sd_config(compute_costs=False, compute_actual_workup_costs=True,
+                           costing_method="llm_only", costing_parallelism=1)
+        case = {"tests": [{"name": "Historical workup test", "in_initial_presentation": False}],
+                "estimated_clinician_visits": 2}
+        result = diagnosed()
+        with patch.object(costing.llm_estimater, "cost_test", return_value={"cost": 25}) as pricer:
+            harness._compute_costs(case, result, config)
+        pricer.assert_called_once()
+        self.assertNotIn("cost_analysis_llm_only", result)
+        self.assertEqual(reporting.get_cost_analysis_methods([result]), ["llm_only"])
+        harness_config = HarnessConfig(sdbench_config=config, dataset="synthetic")
+        with tempfile.TemporaryDirectory() as directory, redirect_stdout(io.StringIO()) as output:
+            html = Path(reporting.generate_html_overview([result], directory, harness_config)).read_text()
+            reporting.generate_cost_analysis([result], harness_config)
+        self.assertIn("ACTUAL WORKUP AGGREGATE COST SUMMARY (LLM)", output.getvalue())
+        self.assertIn("Aggregate total cost: $625.00", output.getvalue())
+        self.assertNotIn("Cost analysis disabled", output.getvalue())
+        self.assertIn('data-original-text="Actual Workup Cost (LLM)"', html)
+        self.assertIn("Actual Workup Cost Analysis (LLM)", html)
+        self.assertIn("Historical workup test", html)
+        self.assertIn("<strong>Total Cost:</strong> $625.00", html)
+        summary = reporting._summarize_cases([result], ["llm_only"], True)
+        self.assertEqual(summary["actual_workup_costs"]["llm_only"]["total"], 625)
+        self.assertIsNone(summary["costs"]["llm_only"]["total"])
+        report = {"dataset": "synthetic", "groups": [{"agent": "baseline", "model": "fixture",
+                  "case_sets": {"train": summary}}]}
+        self.assertIn("actual-workup cost[llm_only] mean $625.00", reporting.format_accuracy_cost_report(report))
+
+    def test_mixed_legacy_agent_and_specific_historical_prices_both_survive_loading(self):
+        result = diagnosed()
+        result["cost_analysis"] = self.complete
+        historical = legacy_analysis([price("Historical MRI", 125, "batch_llm_only")])
+        historical["method"] = "batch_llm_only"
+        result["cost_analysis_actual_workup_batch_llm_only"] = historical
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "case_k1_fixture.json"
+            path.write_text(json.dumps(result))
+            loaded = reporting.load_results_from_json(directory)
+            html = Path(reporting.generate_html_overview(loaded, directory,
+                        HarnessConfig(sdbench_config=sd_config(), dataset="synthetic"))).read_text()
+        self.assertEqual(loaded[0]["cost_analysis_llm_only"], self.complete)
+        self.assertEqual(loaded[0]["cost_analysis_actual_workup_batch_llm_only"], historical)
+        self.assertEqual(reporting.get_cost_analysis_methods(loaded), ["batch_llm_only", "llm_only"])
+        self.assertIn('data-original-text="Agent Cost (LLM)"', html)
+        self.assertIn('data-original-text="Actual Workup Cost (BatchLLM)"', html)
+        self.assertIn("<strong>Total Cost:</strong> $325.00", html)
+        self.assertIn("<strong>Total Cost:</strong> $425.00", html)
+
     def test_saved_json_report_preserves_accuracy_and_cost_coverage(self):
         config = HarnessConfig(sdbench_config=sd_config(), dataset="synthetic")
         with tempfile.TemporaryDirectory() as directory:
@@ -295,7 +345,7 @@ class CostReportingTests(unittest.TestCase):
                 self.assertEqual(pricer.call_count, 2)
                 self.assertEqual(counts, {"grounded": 0, "llm": 2, "failed": 0,
                                          "cases": 1, "complete_cases": 1, "partial_cases": 0,
-                                         "unknown_cases": 0, "unknown_coverage_cases": 0})
+                                         "unknown_cases": 0, "unknown_coverage_cases": 0, "excluded_cases": 0})
                 result = json.loads(path.read_text())
                 self.assertEqual(result["cost_analysis_llm_only"]["pricing_status"], "complete")
                 recost.recost_case(str(path), config, force=False, analyze_only=False)
@@ -317,8 +367,9 @@ class CostReportingTests(unittest.TestCase):
                 recost.main()
         compute.assert_not_called()
         self.assertIn("Unknown (not computed)", output.getvalue())
-        self.assertIn("Cases: 3; complete: 1; partial: 0; unknown: 2", output.getvalue())
-        self.assertIn("Test coverage unknown for 2 cases", output.getvalue())
+        self.assertIn("Cases: 2; complete: 1; partial: 0; unknown: 1", output.getvalue())
+        self.assertIn("Excluded incomplete or unreadable diagnoses: 1", output.getvalue())
+        self.assertIn("Test coverage unknown for 1 cases", output.getvalue())
 
 
 if __name__ == "__main__":

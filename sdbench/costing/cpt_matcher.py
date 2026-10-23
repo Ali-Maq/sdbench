@@ -779,6 +779,11 @@ SELECTED_CPT: [CPT code 1]
 SELECTED_CPT: [CPT code 2] (if multiple codes needed)
 SELECTED_CPT: [CPT code 3] (if additional codes needed)
 
+If no appropriate code exists, explain why and use exactly one selection line:
+REASONING: [Why no CPT/HCPCS code matches this procedure]
+SELECTED_CPT: NONE
+Do not mix NONE with selected codes. Each selected code must be a complete five-character CPT/HCPCS code.
+
 Example response format for single code:
 REASONING: This code specifically covers "RADIOLOGIC EXAM, CHEST; 2 VIEWS" which is the standard chest x-ray procedure typically performed in clinical practice.
 SELECTED_CPT: 71046
@@ -807,11 +812,10 @@ SELECTED_CPT: 88342
                 **self._config.costing_model_args,
             )
 
-            response_text: str = (
-                response.choices[0].message.content.strip()
-                if response.choices[0].message.content
-                else ""
-            )
+            choice = response.choices[0]
+            if choice.finish_reason != "stop":
+                raise ValueError(f"Incomplete CPT selection response: {choice.finish_reason}")
+            response_text: str = (choice.message.content or "").strip()
 
             # Parse the response for multiple CPT codes
             selected_cpts: list[str] = []
@@ -819,16 +823,24 @@ SELECTED_CPT: 88342
 
             lines: list[str] = response_text.split("\n")
             for line in lines:
+                line = line.strip()
                 if line.startswith("SELECTED_CPT:"):
-                    cpt: str = line.replace("SELECTED_CPT:", "").strip()
-                    if cpt:
-                        selected_cpts.append(cpt)
+                    cpt: str = line.removeprefix("SELECTED_CPT:").strip()
+                    if cpt != "NONE" and not re.fullmatch(r"(?:\d{5}|[A-Z]\d{4}|\d{4}[A-Z])", cpt):
+                        raise ValueError(f"Malformed selected CPT/HCPCS code: {cpt!r}")
+                    selected_cpts.append(cpt)
+                elif line.startswith("SELECTED_CPT"):
+                    raise ValueError("Malformed SELECTED_CPT field")
                 elif line.startswith("REASONING:"):
-                    reasoning = line.replace("REASONING:", "").strip()
+                    reasoning = line.removeprefix("REASONING:").strip()
 
-            if not selected_cpts:
+            if not reasoning or not selected_cpts:
+                raise ValueError("CPT selection requires reasoning and a complete SELECTED_CPT field")
+            if "NONE" in selected_cpts and selected_cpts != ["NONE"]:
+                raise ValueError("NONE cannot be combined with another selection")
+            if selected_cpts == ["NONE"]:
                 return {
-                    "error": f"No CPTs selected by LLM from {len(results)} candidates",
+                    "error": f"No appropriate CPTs selected by LLM from {len(results)} candidates",
                     "selected_results": [],
                     "selected_cpts": [],
                     "reasoning": reasoning,

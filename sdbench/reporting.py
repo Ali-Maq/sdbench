@@ -158,6 +158,7 @@ def normalize_cost_analysis_keys(result: Dict[str, Any], common_method: str = "l
         # Check if there's already a method-specific key (not KP)
         has_method_specific = any(
             k.startswith("cost_analysis_") and
+            not k.startswith("cost_analysis_actual_workup_") and
             k not in ("cost_analysis_kp", "cost_analysis_actual_workup", "cost_analysis_actual_workup_kp")
             for k in result.keys()
         )
@@ -203,14 +204,16 @@ def get_cost_analysis_methods(results: List[Dict[str, Any]]) -> List[str]:
         List of method names (e.g., ['unified_cpt_llm', 'llm_only'])
     """
     methods = set()
+    prefixes = ("cost_analysis_actual_workup_", "cost_analysis_true_", "cost_analysis_")
     for result in results:
-        for key in result.keys():
-            if key.startswith("cost_analysis_") and not key.startswith("cost_analysis_actual_workup_") and not key.startswith("cost_analysis_true_"):
-                method = key.replace("cost_analysis_", "")
-                # Exclude legacy "true" key (cost_analysis_actual_workup without method suffix)
-                if method not in ("true", "kp", "actual_workup"):
-                    methods.add(method)
-    return sorted(list(methods))
+        for key in result:
+            for prefix in prefixes:
+                if key.startswith(prefix):
+                    method = key[len(prefix):]
+                    if method and method not in ("true", "kp", "actual_workup"):
+                        methods.add(method)
+                    break
+    return sorted(methods)
 
 
 def get_cost_analyses_for_method(results: List[Dict[str, Any]], method: str) -> List[Dict[str, Any]]:
@@ -368,35 +371,32 @@ def print_console_summary(summary_file: str, results: List[Dict[str, Any]]) -> N
 
 
 def generate_cost_analysis(results: List[Dict[str, Any]], config: HarnessConfig) -> None:
-    """Generate and print cost analysis if enabled."""
-    if not config.sdbench.compute_costs:
-        print("\nCost analysis disabled (use without --no-compute-costs to enable).")
+    """Report stored agent and historical costs, regardless of current compute flags."""
+    methods = get_cost_analysis_methods(results)
+    if not methods:
+        print("\nNo cost analyses found in results.")
         return
-
     valid = [result for result in results if is_completed_result(result)]
     print(f"\nClinical cost population: {len(valid)} completed diagnoses; "
           f"{len(results) - len(valid)} incomplete diagnoses excluded.")
 
-    # Get all costing methods present in results
-    methods = get_cost_analysis_methods(results)
-
-    if not methods:
-        print("No cost analyses found in results.")
-        return
-
-    for method in methods:
-        stats = _cost_statistics([result.get(f"cost_analysis_{method}") for result in valid])
-        print(f"\nAGGREGATE COST SUMMARY ({get_method_display_name(method)})")
-        print(f"Complete cases: {stats['n']}/{stats['cases']}; "
-              f"partial: {stats['partial_cases']}; unknown: {stats['unknown_cases']}")
-        print(f"Unpriced unique tests: {stats['unpriced_tests']}; "
-              f"cases with unknown coverage: {stats['unknown_coverage_cases']}")
-        print(f"Grounded tests: {stats['grounded_tests']}; LLM-priced tests: {stats['llm_tests']}")
-        print(f"Aggregate total cost: {_money(stats['total'])}")
-        print(f"Mean cost per case: {_money(stats['mean'])}")
-        print(f"Complete-case subtotal: {_money(stats['complete_case_total'])}")
-        print(f"Known subtotal with visits (includes partial or unknown pricing): "
-              f"{_money(stats['known_subtotal_with_visits'])}")
+    for prefix, label in (("cost_analysis", "AGENT"),
+                          ("cost_analysis_actual_workup", "ACTUAL WORKUP")):
+        for method in methods:
+            if not any(f"{prefix}_{method}" in result for result in results):
+                continue
+            stats = _cost_statistics([result.get(f"{prefix}_{method}") for result in valid])
+            print(f"\n{label} AGGREGATE COST SUMMARY ({get_method_display_name(method)})")
+            print(f"Complete cases: {stats['n']}/{stats['cases']}; "
+                  f"partial: {stats['partial_cases']}; unknown: {stats['unknown_cases']}")
+            print(f"Unpriced unique tests: {stats['unpriced_tests']}; "
+                  f"cases with unknown coverage: {stats['unknown_coverage_cases']}")
+            print(f"Grounded tests: {stats['grounded_tests']}; LLM-priced tests: {stats['llm_tests']}")
+            print(f"Aggregate total cost: {_money(stats['total'])}")
+            print(f"Mean cost per case: {_money(stats['mean'])}")
+            print(f"Complete-case subtotal: {_money(stats['complete_case_total'])}")
+            print(f"Known subtotal with visits (includes partial or unknown pricing): "
+                  f"{_money(stats['known_subtotal_with_visits'])}")
     print("Individual case cost analyses are saved in each case's JSON file.")
 
 
@@ -814,14 +814,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
         num_tests = len(requested_tests)
 
         # Get all cost analysis methods available for this result
-        result_methods = []
-        for key in result.keys():
-            # Skip legacy keys without method suffix
-            if key in ("cost_analysis", "cost_analysis_actual_workup", "cost_analysis_kp", "cost_analysis_actual_workup_kp"):
-                continue
-            if key.startswith("cost_analysis_") and not key.startswith("cost_analysis_actual_workup_") and not key.startswith("cost_analysis_true_"):
-                method = key.replace("cost_analysis_", "")
-                result_methods.append(method)
+        result_methods = get_cost_analysis_methods([result])
 
         # Sort methods: unified first, then others
         def method_sort_key(m):
@@ -881,16 +874,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
 
 
         # Add cost analysis buttons for each method available in this result
-        result_methods_buttons = []
-        for key in result.keys():
-            # Skip legacy keys without method suffix
-            if key in ("cost_analysis", "cost_analysis_actual_workup", "cost_analysis_kp", "cost_analysis_actual_workup_kp"):
-                continue
-            if key.startswith("cost_analysis_") and not key.startswith("cost_analysis_actual_workup_") and not key.startswith("cost_analysis_true_"):
-                method = key.replace("cost_analysis_", "")
-                result_methods_buttons.append(method)
-
-        for method in result_methods_buttons:
+        for method in result_methods:
             # Map method to short display name
             method_display = get_method_display_name(method)
 
@@ -1658,6 +1642,18 @@ def _summarize_cases(cases: List[Dict[str, Any]], methods: List[str], compute_ci
             entry["ci"] = bootstrap_ci([case_cost(case, method) for case in valid])
         costs[method] = entry
 
+    actual_workup_costs: Dict[str, Any] = {}
+    for method in methods:
+        key = f"cost_analysis_actual_workup_{method}"
+        if not any(key in case for case in cases):
+            continue
+        analyses = [case.get(key) for case in valid]
+        entry = _cost_statistics(analyses)
+        if compute_ci and entry["mean"] is not None:
+            entry["ci"] = bootstrap_ci([cost_summary(analysis)["totals"]["total_with_visits"]
+                                        for analysis in analyses])
+        actual_workup_costs[method] = entry
+
     summary: Dict[str, Any] = {
         "cases": len(cases),
         "valid_cases": n,
@@ -1667,6 +1663,7 @@ def _summarize_cases(cases: List[Dict[str, Any]], methods: List[str], compute_ci
         "n_correct": n_correct,
         "accuracy": accuracy,
         "costs": costs,
+        "actual_workup_costs": actual_workup_costs,
     }
     if compute_ci:
         summary["accuracy_ci"] = accuracy_binomial_ci(accuracy, n)
@@ -1742,15 +1739,16 @@ def format_accuracy_cost_report(report: Dict[str, Any], title: str = "ACCURACY &
                 lo, hi = s["accuracy_ci"]
                 acc += f"  CI[{100 * lo:.1f}-{100 * hi:.1f}]"
             lines.append(f"  {cs:<11} acc {acc}")
-            for method, c in s["costs"].items():
-                line = (f"      cost[{method}] mean {_money(c['mean'])}  total {_money(c['total'])}"
-                        f"  complete {c['n']}/{c['cases']}; partial {c['partial_cases']}; unknown {c['unknown_cases']}")
-                if "ci" in c:
-                    line += f"  CI[{c['ci'][0]:.2f}-{c['ci'][1]:.2f}]"
-                lines.append(line)
-                lines.append(f"        complete-case subtotal {_money(c['complete_case_total'])}; "
-                             f"known subtotal with visits {_money(c['known_subtotal_with_visits'])}; "
-                             f"unpriced tests {c['unpriced_tests']}; unknown coverage {c['unknown_coverage_cases']} cases")
+            for key, label in (("costs", "cost"), ("actual_workup_costs", "actual-workup cost")):
+                for method, c in s.get(key, {}).items():
+                    line = (f"      {label}[{method}] mean {_money(c['mean'])}  total {_money(c['total'])}"
+                            f"  complete {c['n']}/{c['cases']}; partial {c['partial_cases']}; unknown {c['unknown_cases']}")
+                    if "ci" in c:
+                        line += f"  CI[{c['ci'][0]:.2f}-{c['ci'][1]:.2f}]"
+                    lines.append(line)
+                    lines.append(f"        complete-case subtotal {_money(c['complete_case_total'])}; "
+                                 f"known subtotal with visits {_money(c['known_subtotal_with_visits'])}; "
+                                 f"unpriced tests {c['unpriced_tests']}; unknown coverage {c['unknown_coverage_cases']} cases")
             flags = []
             if s["errored"]:
                 flags.append(f"{s['errored']} errored (excluded)")

@@ -108,6 +108,8 @@ unpriced test counts. Complete totals are `null` when coverage is incomplete;
 known subtotals remain separate. Reports recheck legacy results from per-test
 details and the declared expected count. A cohort with missing prices has no
 complete mean/total; complete-case subset statistics carry their own denominator.
+Recost excludes incomplete diagnoses and replaces completed case files atomically.
+Historical-workup prices remain reportable when agent costing is disabled.
 This measures one price per unique test name after lowercasing and trimming outer
 whitespace. Repeated requests are counted but are not repeated-procedure bills.
 
