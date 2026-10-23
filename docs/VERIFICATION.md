@@ -6,7 +6,32 @@ They establish software execution, not clinical validity or equivalence to MAI-D
 The public checks below use fictional cases. Private evaluation records and
 their clinical outcomes are not redistributed in this repository.
 
-## Full local Langfuse export (2026-10-23)
+## Native Langfuse agent graph (2026-10-23)
+
+[Issue #15](https://github.com/Ali-Maq/sdbench/issues/15) replaces generic span
+export with public OTLP observations carrying native agent, evaluator, tool and
+retriever types. No diagnostic or judge code changed.
+
+| Check | Observed result |
+| --- | --- |
+| Python 3.12, all extras | 268 tests passed |
+| Python 3.11, compatible extras | 260 passed; eight expected Harbor-only skips |
+| Focused tracing checks | 23 passed, including semantic types, historical timing, failure acknowledgement, local transport and resource cleanup |
+| Fictional export, local v3.159.0 | Trace detail and public observation list each contain 11 observations with 11 unique IDs and the saved score |
+| Content integrity | Stored input/output, parent IDs, timing and usage match the saved artifacts; no new model calls |
+
+The legacy ingestion route rejected newer observation types. OTLP supports them
+and enables the native graph. Changing the type on an existing v3 observation
+retained both type variants in storage: the migration probe had 17 list rows but
+only 11 distinct IDs, despite trace detail showing 11. The corrected exporter
+therefore uses a separate, stable `otel-v1` trace identity and retains old exports.
+Do not aggregate different export versions as independent clinical trials.
+
+The graph is inferred by Langfuse from role grouping and saved timing. It is not
+a compiled LangGraph execution plan. The trace tree and timeline retain individual
+model attempts; evidence nodes retain the exact requests and returned findings.
+
+## Initial full local Langfuse export (2026-10-23)
 
 [Issue #14](https://github.com/Ali-Maq/sdbench/issues/14) adds an opt-in audit
 export of completed recorded-only trials. Diagnostic and judge prompts are
@@ -22,11 +47,11 @@ unchanged. Provider ledgers now also record UTC start/end timestamps.
 | Content and timing | Opening, saved diagnosis, reference and retrieved text match the saved artifacts; provider intervals use recorded UTC timestamps; retrievals show completion instants |
 
 The initial server integration rejected six semantic observation types even
-though the SDK accepted their typed objects. The corrected v3 adapter represents
+though the SDK accepted their typed objects. The initial fallback represented
 roles and tools as spans, retaining their purpose in names and metadata. Stable
 observation IDs repaired the partial fictional trace without duplicate nodes.
-Unit tests now enforce the server's supported types. No clinical data was used
-to debug that compatibility issue.
+That fallback hid the native graph; the OTLP correction above supersedes it.
+No clinical data was used to debug that initial compatibility issue.
 
 This is a completed-run export, not live streaming. No new judge is run during
 export. Model names remain metadata to avoid automatic catalogue price estimates;

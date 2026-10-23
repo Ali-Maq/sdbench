@@ -3,12 +3,16 @@
 import importlib.util
 import json
 import os
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
-from sdbench.harbor_integration.tracing import build_metadata_export, main, send_metadata_export
+from sdbench.harbor_integration.tracing import (
+    build_metadata_export,
+    main,
+    send_metadata_export,
+)
 
 
 class MetadataExportTests(unittest.TestCase):
@@ -124,7 +128,9 @@ class MetadataExportTests(unittest.TestCase):
     def test_real_sdk_in_memory_export_has_parent_child_spans_without_network(self):
         from langfuse import Langfuse
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+        from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+            InMemorySpanExporter,
+        )
         exporter = InMemorySpanExporter()
         provider = TracerProvider()
         client = Langfuse(
@@ -273,54 +279,224 @@ class FullExportTests(unittest.TestCase):
         self.assertEqual(payload['metadata']['api_attempts'], 4)
 
     @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
-    def test_typed_sdk_hierarchy_timestamps_usage_and_acknowledgements(self):
-        from types import SimpleNamespace
-        from sdbench.harbor_integration.tracing import _full_ingestion_events, send_full_export
+    def test_otel_preserves_semantic_types_hierarchy_timestamps_and_usage(self):
+        from datetime import datetime, timezone
+
+        from sdbench.harbor_integration.tracing import _full_otel_spans
         payload = self.build()
-        events = _full_ingestion_events(payload)
-        bodies = [event.body for event in events]
-        generations = [body for body in bodies if hasattr(body, 'usage_details')]
-        self.assertEqual(len(generations), 3)
-        self.assertEqual(sum(body.usage_details['total'] for body in generations), 45)
-        self.assertEqual(generations[0].start_time.isoformat(), self.ledger[0]['started_at'])
-        self.assertEqual(generations[0].end_time.isoformat(), self.ledger[0]['finished_at'])
-        self.assertTrue(all(body.model is None and body.cost_details is None for body in generations))
-        by_id = {body.id: body for body in bodies}
-        for gen in generations:
-            self.assertTrue(by_id[gen.parent_observation_id].name.startswith('sdbench.'))
-        ids = [body.id for body in bodies]
-        self.assertEqual(ids, [event.body.id for event in _full_ingestion_events(payload)])
-        typed = [body for body in bodies if hasattr(body, 'type')]
-        self.assertTrue(all(body.type in {'SPAN', 'GENERATION', 'EVENT'} for body in typed))
-        tools = [body for body in bodies if getattr(body, 'metadata', None)
-                 and body.metadata.get('workflow_observation_type') == 'retriever']
-        self.assertEqual(len(tools), 2)
-        self.assertTrue(all(body.start_time == body.end_time for body in tools))
-        self.assertTrue(all(body.start_time.timestamp() == self.events[0]['timestamp'] for body in tools))
-        client = Mock()
+        spans = _full_otel_spans(payload)
+
+        def count_nodes(item):
+            return 1 + sum(count_nodes(child) for child in item.get('children', []))
+
+        self.assertEqual(len(spans), 1 + sum(count_nodes(role) for role in payload['roles']))
+        by_id = {span.context.span_id: span for span in spans}
+        self.assertEqual(len(by_id), len(spans))
+        self.assertEqual([span.context.span_id for span in spans],
+                         [span.context.span_id for span in _full_otel_spans(payload)])
+        roots = [span for span in spans if span.parent is None]
+        self.assertEqual(len(roots), 1)
+        self.assertEqual(roots[0].name, payload['name'])
+        for span in spans:
+            self.assertEqual(format(span.context.trace_id, '032x'), payload['trace_id'])
+            if span.parent:
+                self.assertIn(span.parent.span_id, by_id)
+                self.assertEqual(span.parent.trace_id, span.context.trace_id)
+                parent = by_id[span.parent.span_id]
+                self.assertLessEqual(parent.start_time, span.start_time)
+                self.assertGreaterEqual(parent.end_time, span.end_time)
+            self.assertNotIn('langfuse.observation.model.name', span.attributes)
+            self.assertNotIn('langfuse.observation.cost_details', span.attributes)
+            self.assertNotIn('langgraph', json.dumps(dict(span.attributes)))
+
+        span_types = [span.attributes['langfuse.observation.type'] for span in spans]
+        self.assertEqual(span_types.count('agent'), 2)
+        self.assertEqual(span_types.count('evaluator'), 1)
+        self.assertEqual(span_types.count('generation'), 3)
+        self.assertEqual(span_types.count('tool'), 1)
+        self.assertEqual(span_types.count('retriever'), 2)
+        generations = [span for span in spans if span.attributes['langfuse.observation.type'] == 'generation']
+        self.assertEqual(sum(json.loads(span.attributes['langfuse.observation.usage_details'])['total']
+                             for span in generations), 45)
+        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        for generation, entry in zip(generations, self.ledger):
+            for attribute, field in (('start_time', 'started_at'), ('end_time', 'finished_at')):
+                delta = datetime.fromisoformat(entry[field]) - epoch
+                expected = ((delta.days * 86400 + delta.seconds) * 1000000 + delta.microseconds) * 1000
+                self.assertEqual(getattr(generation, attribute), expected)
+            self.assertEqual(by_id[generation.parent.span_id].name, f"sdbench.{entry['role']}")
+            self.assertEqual(json.loads(generation.attributes['langfuse.observation.input']),
+                             self.raw[self.ledger.index(entry)]['messages'])
+        retrievers = [span for span in spans if span.attributes['langfuse.observation.type'] == 'retriever']
+        for span, finding in zip(retrievers, self.events[0]['test_results']):
+            self.assertEqual(span.start_time, span.end_time)
+            self.assertEqual(span.start_time, int(self.events[0]['timestamp'] * 1_000_000_000))
+            self.assertEqual(json.loads(span.attributes['langfuse.observation.output']), finding)
+            self.assertEqual(by_id[span.parent.span_id].attributes['langfuse.observation.type'], 'tool')
+
+    @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
+    def test_full_send_exports_spans_before_acknowledged_score(self):
+        from types import SimpleNamespace
+
+        from opentelemetry.sdk.trace.export import SpanExportResult
+
+        from sdbench.harbor_integration.tracing import (
+            _full_otel_spans,
+            send_full_export,
+        )
+        payload = self.build()
+        client, exporter = Mock(), Mock()
+        operations = []
+
+        def export(spans):
+            operations.append(('spans', spans))
+            return SpanExportResult.SUCCESS
+
+        def accept_score(*, batch):
+            operations.append(('score', batch))
+            self.assertTrue(all(event.type == 'score-create' for event in batch))
+            self.assertEqual(len(batch), 1)
+            self.assertEqual(batch[0].body.trace_id, payload['trace_id'])
+            self.assertEqual(batch[0].body.value, payload['score'])
+            return SimpleNamespace(errors=[], successes=[SimpleNamespace(id=item.id) for item in batch])
+
+        exporter.export.side_effect = export
+        client.api.ingestion.batch.side_effect = accept_score
+        result = send_full_export(payload, client=client, span_exporter=exporter)
+        sent_spans = [span for kind, batch in operations if kind == 'spans' for span in batch]
+        self.assertEqual([span.context.span_id for span in sent_spans],
+                         [span.context.span_id for span in _full_otel_spans(payload)])
+        self.assertEqual(operations[-1][0], 'score')
+        self.assertEqual(result['trace_id'], payload['trace_id'])
+        self.assertFalse(result['server_materialization_verified'])
+        client.start_observation.assert_not_called()
+
+    @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
+    def test_full_send_rejects_failed_span_export_without_sending_score(self):
+        from opentelemetry.sdk.trace.export import SpanExportResult
+
+        from sdbench.harbor_integration.tracing import send_full_export
+        client, exporter = Mock(), Mock()
+        exporter.export.return_value = SpanExportResult.FAILURE
+        with self.assertRaises(RuntimeError):
+            send_full_export(self.build(), client=client, span_exporter=exporter)
+        client.api.ingestion.batch.assert_not_called()
+
+    @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
+    def test_full_send_rejects_unacknowledged_score(self):
+        from types import SimpleNamespace
+
+        from opentelemetry.sdk.trace.export import SpanExportResult
+
+        from sdbench.harbor_integration.tracing import send_full_export
+        client, exporter = Mock(), Mock()
+        exporter.export.return_value = SpanExportResult.SUCCESS
+        client.api.ingestion.batch.return_value = SimpleNamespace(errors=['bad'], successes=[])
+        with self.assertRaisesRegex(RuntimeError, 'acknowledge'):
+            send_full_export(self.build(), client=client, span_exporter=exporter)
+
+    @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
+    def test_owned_transport_ignores_environment_proxy_and_closes(self):
+        from types import SimpleNamespace
+        import requests
+        from opentelemetry.sdk.trace.export import SpanExportResult
+        from sdbench.harbor_integration.tracing import send_full_export
+        session, client, exporter = requests.Session(), Mock(), Mock()
+        exporter.export.return_value = SpanExportResult.SUCCESS
         client.api.ingestion.batch.side_effect = lambda *, batch: SimpleNamespace(
             errors=[], successes=[SimpleNamespace(id=item.id) for item in batch])
-        result = send_full_export(payload, client=client)
-        self.assertTrue(result['server_acceptance_verified'])
-        client.api.ingestion.batch.return_value = SimpleNamespace(errors=['bad'], successes=[])
-        client.api.ingestion.batch.side_effect = None
-        with self.assertRaisesRegex(RuntimeError, 'acknowledge'):
-            send_full_export(payload, client=client)
+        settings = {
+            'LANGFUSE_BASE_URL': 'http://127.0.0.1:3001',
+            'LANGFUSE_PUBLIC_KEY': 'test-public', 'LANGFUSE_SECRET_KEY': 'test-secret',
+            'HTTP_PROXY': 'http://external-proxy.invalid:8000',
+            'HTTPS_PROXY': 'http://external-proxy.invalid:8000',
+            'ALL_PROXY': 'http://external-proxy.invalid:8000',
+        }
+        with patch.dict(os.environ, settings, clear=True), \
+                patch('requests.Session', return_value=session), \
+                patch.object(session, 'close', wraps=session.close) as close, \
+                patch('opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter',
+                      return_value=exporter) as constructor:
+            send_full_export(self.build(), client=client)
+            self.assertFalse(session.trust_env)
+            self.assertEqual(session.merge_environment_settings(
+                'http://127.0.0.1:3001/api/public/otel/v1/traces', {}, False, True, None)['proxies'], {})
+        self.assertIs(constructor.call_args.kwargs['session'], session)
+        self.assertEqual(constructor.call_args.kwargs['endpoint'],
+                         'http://127.0.0.1:3001/api/public/otel/v1/traces')
+        exporter.shutdown.assert_called_once()
+        close.assert_called_once()
+        client.shutdown.assert_not_called()
+
+    @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
+    def test_owned_resources_close_when_initialization_fails(self):
+        import requests
+        from sdbench.harbor_integration.tracing import send_full_export
+        settings = {'LANGFUSE_BASE_URL': 'http://127.0.0.1:3001',
+                    'LANGFUSE_PUBLIC_KEY': 'test-public', 'LANGFUSE_SECRET_KEY': 'test-secret'}
+        for failing_resource in ('exporter', 'client'):
+            session, exporter = requests.Session(), Mock()
+            with self.subTest(failing_resource=failing_resource), \
+                    patch.dict(os.environ, settings, clear=True), \
+                    patch('requests.Session', return_value=session), \
+                    patch.object(session, 'close', wraps=session.close) as close, \
+                    patch('opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter',
+                          return_value=exporter) as constructor, \
+                    patch('sdbench.harbor_integration.tracing._configured_client') as client_factory:
+                failing = constructor if failing_resource == 'exporter' else client_factory
+                failing.side_effect = RuntimeError('initialization failed')
+                with self.assertRaisesRegex(RuntimeError, 'initialization failed'):
+                    send_full_export(self.build())
+            close.assert_called_once()
+            exporter.export.assert_not_called()
+            if failing_resource == 'client':
+                exporter.shutdown.assert_called_once()
+            else:
+                client_factory.assert_not_called()
+
+    @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
+    def test_remaining_resources_close_even_if_shutdown_fails(self):
+        from types import SimpleNamespace
+        import requests
+        from opentelemetry.sdk.trace.export import SpanExportResult
+        from sdbench.harbor_integration.tracing import send_full_export
+        settings = {'LANGFUSE_BASE_URL': 'http://127.0.0.1:3001',
+                    'LANGFUSE_PUBLIC_KEY': 'test-public', 'LANGFUSE_SECRET_KEY': 'test-secret'}
+        for failing_resource in ('exporter', 'client'):
+            session, exporter, client = requests.Session(), Mock(), Mock()
+            exporter.export.return_value = SpanExportResult.SUCCESS
+            client.api.ingestion.batch.side_effect = lambda *, batch: SimpleNamespace(
+                errors=[], successes=[SimpleNamespace(id=item.id) for item in batch])
+            failing = exporter if failing_resource == 'exporter' else client
+            failing.shutdown.side_effect = RuntimeError('shutdown failed')
+            with self.subTest(failing_resource=failing_resource), \
+                    patch.dict(os.environ, settings, clear=True), \
+                    patch('requests.Session', return_value=session), \
+                    patch.object(session, 'close', wraps=session.close) as close, \
+                    patch('opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter',
+                          return_value=exporter), \
+                    patch('sdbench.harbor_integration.tracing._configured_client', return_value=client):
+                with self.assertRaisesRegex(RuntimeError, 'shutdown failed'):
+                    send_full_export(self.build())
+            close.assert_called_once()
+            exporter.shutdown.assert_called_once()
+            client.shutdown.assert_called_once()
 
     @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
     def test_missing_and_reversed_timestamps_are_not_invented(self):
-        from sdbench.harbor_integration.tracing import _full_ingestion_events
+        from sdbench.harbor_integration.tracing import _full_otel_spans
         for collection in (self.ledger, self.raw):
             collection[0].pop('started_at')
             collection[0].pop('finished_at')
             collection[1]['started_at'], collection[1]['finished_at'] = (
                 collection[1]['finished_at'], collection[1]['started_at'])
         self.write_calls()
-        generations = [event.body for event in _full_ingestion_events(self.build())
-                       if event.type == 'generation-create']
-        for body in generations[:2]:
-            self.assertEqual(body.start_time, body.end_time)
-            self.assertIn('export-time placeholder', body.metadata['displayed_timing'])
+        generations = [span for span in _full_otel_spans(self.build())
+                       if span.attributes['langfuse.observation.type'] == 'generation']
+        for span in generations[:2]:
+            self.assertEqual(span.start_time, span.end_time)
+            self.assertIn('export-time placeholder',
+                          span.attributes['langfuse.observation.metadata.displayed_timing'])
 
     def test_full_cli_preview_is_private_and_does_not_send(self):
         import stat

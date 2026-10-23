@@ -9,18 +9,19 @@ metadata-only observations describe export time.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+import base64
 import hashlib
 import ipaddress
 import json
 import math
 import os
+from contextlib import ExitStack
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from sdbench.isolation.common import canonical_hash, write_json
-
 
 _SOURCES = {
     "artifacts/gatekeeper-evidence/usage.jsonl": {"diagnosis", "gatekeeper"},
@@ -276,7 +277,8 @@ def build_full_export(trial_dir: Path, case_path: Path) -> dict[str, Any]:
             "metadata": {"service_event_sequence": event.get("sequence", ordinal),
                          "recorded_completion_timestamp": event.get("timestamp"),
                          "timing_scope": "completion event only; start time was not recorded"},
-            "children": [{"name": f"Retrieve {index}: {item['test_name'][:120]}", "as_type": "retriever",
+            # Keep graph labels short; the exact request remains in the input.
+            "children": [{"name": f"Evidence {batch_number}.{index}", "as_type": "retriever",
                           "input": {"requested_test": item["test_name"]},
                           "output": item,
                           "metadata": {"evidence_status": item.get("evidence_status"),
@@ -285,12 +287,15 @@ def build_full_export(trial_dir: Path, case_path: Path) -> dict[str, Any]:
                          for index, item in enumerate(observations, 1)],
         })
     return {
-        "schema_version": 2, "export_kind": "host-only-posthoc-full-content",
-        "trace_id": _hash("full-trial", trial_id)[:32], "name": "sdbench.harbor.completed-workflow",
+        "schema_version": 3, "export_kind": "host-only-posthoc-full-content",
+        # Langfuse v3 includes observation type in its storage key. A new
+        # namespace avoids retaining both old SPAN and new semantic-type rows.
+        "trace_id": _hash("full-trial-otel-v1", trial_id)[:32], "name": "sdbench.harbor.completed-workflow",
         "input": {"opening": case["case_summary"]},
         "output": {"diagnosis": verified["diagnosis"], "judge_score": score,
                    "correct": verified["correct"], "status": verified["status"]},
         "metadata": {"content_scope": "full-clinical-auditor-view", "api_attempts": len(raw_calls),
+                     "trace_format": "otel-v1", "legacy_export_trace_id": _hash("full-trial", trial_id)[:32],
                      "case_hash": verified["case_hash"], "evidence_hash": verified["evidence_hash"],
                      "actual_paid_usd": None, "mocked": verified.get("mocked"),
                      "source_sha256": sources,
@@ -300,7 +305,7 @@ def build_full_export(trial_dir: Path, case_path: Path) -> dict[str, Any]:
     }
 
 
-def _configured_client(*, local_only: bool = False) -> Any:
+def _configured_endpoint(*, local_only: bool = False) -> str:
     endpoint = os.environ.get("LANGFUSE_BASE_URL") or os.environ.get("LANGFUSE_HOST")
     if not endpoint:
         raise ValueError("Set LANGFUSE_BASE_URL or LANGFUSE_HOST explicitly before --send")
@@ -316,6 +321,11 @@ def _configured_client(*, local_only: bool = False) -> Any:
             raise ValueError("Full clinical export requires a literal loopback address, for example http://127.0.0.1:3001")
     if not os.environ.get("LANGFUSE_PUBLIC_KEY") or not os.environ.get("LANGFUSE_SECRET_KEY"):
         raise ValueError("Set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY before --send")
+    return endpoint.rstrip("/")
+
+
+def _configured_client(*, local_only: bool = False) -> Any:
+    endpoint = _configured_endpoint(local_only=local_only)
     try:
         from langfuse import Langfuse
         from opentelemetry.sdk.trace import TracerProvider
@@ -324,71 +334,79 @@ def _configured_client(*, local_only: bool = False) -> Any:
     return Langfuse(base_url=endpoint, debug=False, tracer_provider=TracerProvider())
 
 
-def send_full_export(payload: dict[str, Any], *, client: Any = None) -> dict[str, Any]:
+def send_full_export(payload: dict[str, Any], *, client: Any = None, span_exporter: Any = None) -> dict[str, Any]:
     """Submit a validated full-content payload to a local, isolated collector.
 
     Injected clients are reserved for callers that independently control their
     transport (including in-memory tests). CLI clients always enforce loopback.
-    Uses the official SDK's typed ingestion API for self-hosted Langfuse v3.
-    Trace and observation IDs are deterministic. This adapter does not support
-    Langfuse v4, which removes this historical ingestion API.
+    Public OTLP preserves semantic observation types and historical timestamps.
+    The saved score uses the SDK's typed score event for self-hosted Langfuse v3.
+    Both transport successes still require a server readback before completion.
     """
-    owns_client = client is None
-    if owns_client:
-        client = _configured_client(local_only=True)
-    try:
-        events = _full_ingestion_events(payload)
-        batches: list[list[Any]] = [[]]
-        size = 0
-        for event in events:
-            event_size = len(event.model_dump_json(by_alias=True, exclude_none=True).encode())
-            if event_size > 3_000_000:
-                raise ValueError("One observation exceeds the local Langfuse v3 ingestion limit")
-            if size + event_size > 3_000_000:
-                batches.append([])
-                size = 0
-            batches[-1].append(event)
-            size += event_size
-        for batch in batches:
-            response = client.api.ingestion.batch(batch=batch)
-            if response.errors or {item.id for item in response.successes} != {item.id for item in batch}:
-                # Server messages may echo clinical input; report only counts
-                # and numeric statuses, leaving the private preview inspectable.
-                statuses = sorted({str(item.status) for item in response.errors
-                                   if type(getattr(item, "status", None)) is int})
-                raise RuntimeError(
-                    "Langfuse did not acknowledge every ingestion event: "
-                    f"{len(response.successes)}/{len(batch)} accepted; "
-                    f"{len(response.errors)} rejected; HTTP statuses={statuses}. "
-                    "Inspect the local server before retrying."
-                )
-    finally:
-        if owns_client:
-            client.shutdown()
+    with ExitStack() as resources:
+        if span_exporter is None:
+            endpoint = _configured_endpoint(local_only=True)
+            import requests
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter,
+            )
+            session = requests.Session()
+            resources.callback(session.close)
+            # A literal loopback URL must not route clinical text through an
+            # environment-configured proxy or OTEL credential-provider session.
+            session.trust_env = False
+            credentials = f"{os.environ['LANGFUSE_PUBLIC_KEY']}:{os.environ['LANGFUSE_SECRET_KEY']}"
+            span_exporter = OTLPSpanExporter(
+                endpoint=endpoint + "/api/public/otel/v1/traces",
+                headers={"Authorization": "Basic " + base64.b64encode(credentials.encode()).decode()},
+                session=session,
+            )
+            resources.callback(span_exporter.shutdown)
+        if client is None:
+            client = _configured_client(local_only=True)
+            resources.callback(client.shutdown)
+        from opentelemetry.sdk.trace.export import SpanExportResult
+        # One observation per request bounds each transport message without
+        # splitting its input/output. IDs make retries update the same nodes.
+        spans = _full_otel_spans(payload)
+        for span in spans:
+            if len(json.dumps(dict(span.attributes)).encode()) > 3_000_000:
+                raise ValueError("One observation exceeds the local Langfuse ingestion limit")
+        for span in spans:
+            if span_exporter.export([span]) != SpanExportResult.SUCCESS:
+                raise RuntimeError("Langfuse OTLP transport failed; inspect the local server before retrying")
+        event = _full_score_event(payload)
+        response = client.api.ingestion.batch(batch=[event])
+        if response.errors or {item.id for item in response.successes} != {event.id}:
+            # Do not echo server errors, which can contain clinical input.
+            raise RuntimeError("Langfuse did not acknowledge the saved score event")
     return {"trace_id": payload["trace_id"], "api_attempts": payload["metadata"]["api_attempts"],
-            "transport_status": "every-event-acknowledged-by-v3-ingestion", "server_acceptance_verified": True,
+            "transport_status": "otel-transport-succeeded-and-saved-score-acknowledged", "server_acceptance_verified": False,
             "server_materialization_verified": False,
             "content_scope": "full-clinical-auditor-view"}
 
 
-def _full_ingestion_events(payload: dict[str, Any]) -> list[Any]:
-    """Map saved observations to supported v3 SDK types without guessing timing."""
-    from langfuse.api.ingestion.types.create_generation_body import CreateGenerationBody
-    from langfuse.api.ingestion.types.ingestion_event import (
-        IngestionEvent_GenerationCreate, IngestionEvent_ObservationCreate,
-        IngestionEvent_ScoreCreate, IngestionEvent_TraceCreate,
-    )
-    from langfuse.api.ingestion.types.observation_body import ObservationBody
-    from langfuse.api.ingestion.types.score_body import ScoreBody
-    from langfuse.api.ingestion.types.trace_body import TraceBody
+def _full_otel_spans(payload: dict[str, Any]) -> list[Any]:
+    """Build public OTEL spans with stable IDs and recorded execution times.
+
+    The Langfuse SDK's start_observation cannot set historical start times or
+    span IDs. ReadableSpan supports both without mutating SDK internals.
+    """
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import ReadableSpan
+    from opentelemetry.sdk.util.instrumentation import InstrumentationScope
+    from opentelemetry.trace import SpanContext, TraceFlags
 
     exported_at = datetime.now(timezone.utc)
     trace_id = payload["trace_id"]
-    events = []
+    spans = []
 
-    def add(kind: Any, body: Any) -> None:
-        events.append(kind(id=_hash("ingestion", body.model_dump_json(by_alias=True, exclude_none=True)),
-                           timestamp=exported_at.isoformat(), body=body))
+    def context(span_id: str) -> Any:
+        return SpanContext(int(trace_id, 16), int(span_id, 16), False, TraceFlags(TraceFlags.SAMPLED))
+
+    def nanoseconds(value: datetime) -> int:
+        delta = value - datetime(1970, 1, 1, tzinfo=timezone.utc)
+        return ((delta.days * 86400 + delta.seconds) * 1_000_000 + delta.microseconds) * 1000
 
     def parsed_time(value: Any) -> datetime | None:
         if not isinstance(value, str):
@@ -418,30 +436,46 @@ def _full_ingestion_events(payload: dict[str, Any]) -> list[Any]:
             start = end = exported_at
             timing = "export-time placeholder; original execution timestamps unavailable or invalid"
         metadata["displayed_timing"] = timing
-        args = {key: item[key] for key in ("name", "input", "output") if key in item}
-        args.update(id=observation_id, trace_id=trace_id, parent_observation_id=parent,
-                    start_time=start, end_time=end, metadata=metadata,
-                    level="ERROR" if metadata.get("status") not in {None, "completed"} else "DEFAULT")
-        if item["as_type"] == "generation":
-            add(IngestionEvent_GenerationCreate, CreateGenerationBody(**args, usage_details=item["usage_details"]))
-        else:
-            # v3's ingestion endpoint accepts SPAN/GENERATION/EVENT only, even
-            # though the v4 Python SDK exposes newer observation enum members.
-            add(IngestionEvent_ObservationCreate, ObservationBody(**args, type="SPAN"))
+        attributes = {
+            "langfuse.observation.type": item["as_type"],
+            "langfuse.observation.level": "ERROR" if metadata.get("status") not in {None, "completed"} else "DEFAULT",
+            "langfuse.trace.name": payload["name"], "langfuse.trace.public": False,
+        }
+        for key in ("input", "output", "usage_details"):
+            if key in item:
+                attributes[f"langfuse.observation.{key}"] = json.dumps(item[key], ensure_ascii=False)
+        for key, value in metadata.items():
+            attributes[f"langfuse.observation.metadata.{key}"] = (
+                value if isinstance(value, (str, bool, int, float)) else json.dumps(value, ensure_ascii=False))
+        if parent is None:
+            for key in ("input", "output", "metadata"):
+                attributes[f"langfuse.trace.{key}"] = json.dumps(payload[key], ensure_ascii=False)
+        spans.append(ReadableSpan(
+            name=item["name"], context=context(observation_id), parent=context(parent) if parent else None,
+            start_time=nanoseconds(start), end_time=nanoseconds(end), attributes=attributes,
+            resource=Resource({"service.name": "sdbench-harbor"}),
+            instrumentation_scope=InstrumentationScope("sdbench.harbor.export"),
+        ))
         return start, end
 
     top = {"name": payload["name"], "as_type": "span", "metadata": payload["metadata"],
            "input": payload["input"], "output": payload["output"], "children": payload["roles"]}
-    start, _ = emit(top, "root", None)
-    add(IngestionEvent_TraceCreate, TraceBody(id=trace_id, name=payload["name"], timestamp=start,
-                                            input=payload["input"], output=payload["output"],
-                                            metadata=payload["metadata"], public=False))
-    add(IngestionEvent_ScoreCreate, ScoreBody(
-        id=_hash("full-score", trace_id), trace_id=trace_id, name="sdbench.diagnosis_score",
+    emit(top, "root", None)
+    return spans
+
+
+def _full_score_event(payload: dict[str, Any]) -> Any:
+    from langfuse.api.ingestion.types.ingestion_event import IngestionEvent_ScoreCreate
+    from langfuse.api.ingestion.types.score_body import ScoreBody
+    body = ScoreBody(
+        id=_hash("full-score", payload["trace_id"]), trace_id=payload["trace_id"], name="sdbench.diagnosis_score",
         value=payload["score"], data_type="NUMERIC",
         comment="Saved released-judge score; exported without regrading. Range 1–5; correct threshold 4.",
-    ))
-    return events
+    )
+    return IngestionEvent_ScoreCreate(
+        id=_hash("ingestion", body.model_dump_json(by_alias=True, exclude_none=True)),
+        timestamp=datetime.now(timezone.utc).isoformat(), body=body,
+    )
 
 
 def send_metadata_export(payload: dict[str, Any], *, client: Any = None) -> dict[str, Any]:

@@ -273,14 +273,21 @@ reasoning is excluded. Scores are the saved judge's assessments, not new grades.
 Full-content sending requires a literal loopback endpoint such as
 `LANGFUSE_BASE_URL=http://127.0.0.1:3001`, with project keys in the host environment.
 Add `--send` and a new preview output path after reviewing the preview. Keep the
-server private and authenticated. The exporter uses the official Python SDK v4's
-typed ingestion API for **self-hosted Langfuse v3** (tested locally with v3.159.0).
-Langfuse v4 removes that ingestion API; this full-content adapter must be migrated
-before upgrading the server. Metadata mode continues to use the SDK's OpenTelemetry
-path. See [Langfuse's compatibility documentation](https://langfuse.com/docs/observability/sdk/overview).
-The v3 ingestion route represents roles and tools as spans; names and
-`workflow_observation_type` metadata preserve their purpose. Actual API attempts
-are generation observations.
+server private and authenticated. Observations use the public OpenTelemetry
+HTTP exporter; the saved score uses the Python SDK's typed ingestion API for
+**self-hosted Langfuse v3** (tested locally with v3.159.0). The score route and
+trace-level attributes need migration before upgrading to v4. Metadata mode
+continues to use the SDK's OpenTelemetry path.
+
+Inside a full trace, the agent graph appears beneath the left-hand observation
+tree. Expand that panel if it is collapsed; drag its divider to enlarge the graph.
+Diagnostic and gatekeeper roles are
+agents, the judge is an evaluator, request batches are tools, and returned findings
+are retrievers. These native types enable [Langfuse's graph view](https://langfuse.com/docs/observability/features/agent-graphs)
+without a LangGraph runtime. The graph is inferred from observation nesting and
+timing. Role nodes group their model calls; they do not describe a compiled
+LangGraph or prove per-turn control dependencies. Use the timeline and generation
+observations for exact saved messages and call order.
 
 New provider ledgers record UTC start/end times as well as monotonic latency.
 The full trace uses those intervals; tool retrievals show their recorded completion
@@ -292,7 +299,15 @@ a completed workflow, not live streaming or screen video.
 Only generation observations carry token usage, avoiding double counting parent
 totals. Cached/reasoning subsets remain metadata. Model names are metadata rather
 than catalogue pricing inputs; API dollars stay unknown without billing evidence.
-Trace and observation IDs are deterministic, so resubmitting the same completed
-trial updates the same observations. The receipt checks every ingestion event's
-acknowledgement, but server processing is asynchronous: verify the trace appears
-in the local UI/API before calling the export complete.
+Trace and observation IDs are deterministic within the `otel-v1` export format,
+so resubmitting the same completed trial updates the same observations. Legacy
+span-only exports keep their old trace identity. This separation matters on v3:
+changing an existing observation's type can retain both type variants in storage,
+even when trace detail deduplicates them. `legacy_export_trace_id` identifies the
+prior format; it does not imply that a prior export exists. Do not count export
+versions as independent clinical trials.
+
+The receipt reports OTLP transport success
+and acknowledgement of the saved score. Server processing is asynchronous: compare
+the stored types, content, IDs, timestamps and usage through the local API and
+verify the graph in the UI before calling the export complete.
