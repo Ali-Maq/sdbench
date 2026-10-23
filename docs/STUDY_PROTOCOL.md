@@ -36,6 +36,13 @@ record but do not automatically define the diagnostic answer. Freeze the referen
 wording before scoring; resolve material contradictions rather than requiring
 another blanket review of every record.
 
+The judge context must cover the frozen episode's evidence, not just the disease
+label or the subset requested by an agent. Apply the same construction rule to
+every case and freeze it before diagnostic execution. See
+[independent judge context](RECORDED_EPISODES.md#freeze-the-judge-context-independently)
+for the distinction between fixed scoring instructions, case-specific evidence
+and explicitly post-hoc reference corrections.
+
 Stock `CaseData` supplies the same `full_text` to gatekeeper and judge. The new
 `recorded_episode` extension projects a different file for the gatekeeper: only
 the opening and permitted evidence. Its selector returns IDs; application code

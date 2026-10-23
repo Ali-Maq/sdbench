@@ -96,6 +96,39 @@ direct identifiers from permitted evidence. Freeze the reference and explain
 conflicting subtype/staging labels before scoring. The released semantic judge
 returns 1–5, with 4–5 passing; it is not a keyword check or a new staging rubric.
 
+## Freeze the judge context independently
+
+The released `check_diagnosis` function reads `case.full_text` as its context
+and compares the submitted diagnosis with `case.final_diagnosis`. The
+`v3_reasoning` template used here has no test-log placeholder: it does not see
+the diagnostic agent's requested observations merely because the caller passes
+`test_logs`. The stock MIMIC `v4_reasoning_with_tests` template does include them.
+Both grade after the diagnostic agent returns; neither revises the reference
+after each question.
+
+For a recorded episode, prepare `full_text` from the expert reference plus all
+frozen episode excerpts, with their dates and uncertainty intact. Use one
+deterministic inclusion rule across cases, independent of candidate diagnoses,
+requested tests and scores. This covers the selected episode, not the patient's
+entire lifetime chart. Keep the diagnostic target separate from the expert's
+treatment choices. A short diagnostic label alone is insufficient context for
+assessing additional qualifiers or complications.
+
+This is a preparation requirement; `prepare-recorded` validates structure and
+hashes but cannot certify reference completeness. The template stays fixed
+across cases; the patient-specific evidence and reference diagnosis differ.
+Freeze both before running the diagnostic agent, and check that findings the
+gatekeeper can disclose are represented in the judge context.
+
+If an omission is found after observing scores, preserve the original results.
+Validate each saved acquisition against its original case and frozen runtime,
+then use `check_diagnosis` for a separate, explicitly post-hoc regrade. Freeze
+one corrected context before any regrading calls and apply it to every compared
+saved diagnosis, with the same prompt, model and generation settings. Do not
+rewrite old cases, event hashes, rewards or scores to make the amended reference
+look original. A broader context change cannot isolate the effect of one added
+finding, and one new stochastic score per diagnosis is not an accuracy estimate.
+
 ## Test the fictional workflow
 
 From the checkout, with Docker and the Harbor extra installed:
