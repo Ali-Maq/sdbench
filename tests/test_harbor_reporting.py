@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from sdbench.harbor_integration.reporting import export_trial_report
 from sdbench.isolation.common import canonical_hash
+from sdbench.results import is_completed_result
 
 
 class IsolatedReportTests(unittest.TestCase):
@@ -38,7 +39,8 @@ class IsolatedReportTests(unittest.TestCase):
             "diagnosis_model": "diagnoser", "gatekeeper_model": "gatekeeper", "judge_model": "grader",
             "api_mode": "live", "mocked": False,
             "test_logs": [{"test_name": "CBC", "result": "RECORDED_TEST_RESULT", "is_synthetic": True}],
-            "judge": {"check_diagnosis_messages": [
+            "judge": {"check_diagnosis_output": "Saved judge explanation and score",
+                      "check_diagnosis_messages": [
                 {"role": "system", "content": "Exact judge prompt"},
                 {"role": "assistant", "content": "Saved judge explanation and score"},
             ]},
@@ -90,6 +92,8 @@ class IsolatedReportTests(unittest.TestCase):
         self.assertIn("Observation flags reproduce gatekeeper metadata; they do not verify", html)
         self.assertNotIn("Observation provenance distinguishes recorded", html)
         mapped = json.loads((report.parent / "result.json").read_text())
+        self.assertTrue(is_completed_result(mapped))
+        self.assertEqual(mapped["check_diagnosis_output"], self.verifier["judge"]["check_diagnosis_output"])
         self.assertEqual(mapped["export_metadata"]["api_attempts_by_role"],
                          {"diagnosis": 1, "gatekeeper": 2, "judge": 1})
         self.assertIsNone(mapped["clinical_workup_cost_usd"])
@@ -99,6 +103,13 @@ class IsolatedReportTests(unittest.TestCase):
         self.assertFalse((self.trial / "agent/clinical-report").exists())
         with self.assertRaisesRegex(ValueError, "already exists"):
             export_trial_report(self.trial, self.case_path)
+
+    def test_missing_judge_output_is_not_fabricated_for_completed_report(self):
+        self.verifier["judge"].pop("check_diagnosis_output")
+        self.write("verifier/result.json", self.verifier)
+        with self.assertRaisesRegex(ValueError, "saved judge output"):
+            export_trial_report(self.trial, self.case_path)
+        self.assertFalse((self.trial / "artifacts/clinical-report").exists())
 
     def test_parser_defaults_are_not_presented_as_documented_patient_evidence(self):
         from sdbench.gatekeeper import _parse_xml_test_response

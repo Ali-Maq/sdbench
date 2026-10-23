@@ -18,6 +18,7 @@ from sdbench.config import HarnessConfig
 from sdbench.isolation.accounting import normalize_usage
 from sdbench.isolation.common import canonical_hash
 from sdbench.reporting import generate_html_overview
+from sdbench.results import is_completed_result
 
 # Harbor 0.24's text-file endpoint allows at most 1 MiB per file.
 AUDIT_PART_BYTES = 900_000
@@ -138,6 +139,7 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
                   "timestamp": "Not stored in the per-test verifier record"}
                  for log in verified.get("test_logs", [])]
     mapped = {
+        "result_status": "success",
         "case_id": verified["case_id"], "dataset": verified["dataset"],
         "case_title": case.get("case_title", f"Case {verified['case_id']}"),
         "model_diagnosis": verified["diagnosis"], "actual_diagnosis": case["final_diagnosis"],
@@ -145,6 +147,7 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
         "diagnostic_agent": verified.get("diagnostic_agent", "baseline"),
         "agent_messages": _messages(public["agent_messages"]),
         "check_diagnosis_messages": _messages(verified["judge"]["check_diagnosis_messages"]),
+        "check_diagnosis_output": verified["judge"].get("check_diagnosis_output"),
         "gatekeeper_messages": [_call_conversation(call) for call in calls if call["role"] == "gatekeeper"],
         "test_logs": test_logs, "requested_tests": [log["test_name"] for log in test_logs],
         "api_mode": verified["api_mode"], "mocked": verified["mocked"],
@@ -153,6 +156,8 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
                             "trial_id": verified["trial_id"], "api_attempts_by_role": dict(counts),
                             "all_role_tokens": token_total(), "diagnosis_tokens": token_total("diagnosis")},
     }
+    if not is_completed_result(mapped):
+        raise ValueError("Completed report requires consistent score flags and saved judge output")
     synthetic = str(verified["dataset"]).lower() == "synthetic"
     mode = "MOCKED model calls" if verified["mocked"] else "LIVE model calls"
     label = "SYNTHETIC development/demo case" if synthetic else f"{verified['dataset']} benchmark case"

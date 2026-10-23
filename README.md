@@ -94,7 +94,7 @@ a full longitudinal chart still needs episode preparation. Generated tasks,
 images and reports can contain the private case and belong outside source control.
 
 ```bash
-uv sync --python 3.12 --extra harbor --extra tracing
+uv sync --python 3.12 --all-extras
 uv run python -m unittest discover -s tests -v
 uv build
 ```

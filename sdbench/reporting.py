@@ -17,7 +17,75 @@ from typing import List, Dict, Any, Optional
 from sdbench import case_data
 from sdbench.config import HarnessConfig
 from sdbench.azure_storage import write_output_file
+from sdbench.costing.cost_types import cost_summary, valid_cost
+from sdbench.results import is_completed_result
 
+
+
+def _money(value: Any) -> str:
+    return f"${value:,.2f}" if valid_cost(value) else "Unknown"
+
+
+def _cost_label(analysis: dict[str, Any] | None) -> str:
+    if not analysis:
+        return "Unknown (not computed)"
+    summary = cost_summary(analysis)
+    if summary["pricing_status"] == "complete":
+        return _money(summary["totals"]["total_with_visits"])
+    unpriced = summary["unpriced_test_count"]
+    count = str(unpriced) if unpriced is not None else "unknown number of"
+    return (
+        f"{summary['pricing_status'].title()}: known subtotal with visits "
+        f"{_money(summary['totals']['known_total_with_visits'])}; {count} unpriced tests"
+    )
+
+
+def _cost_statistics(analyses: list[dict[str, Any] | None]) -> dict[str, Any]:
+    """Report complete-case costs separately from coverage and known subtotals."""
+    summaries = [cost_summary(analysis) for analysis in analyses]
+    complete = [summary for summary in summaries if summary["pricing_status"] == "complete"]
+    values = [summary["totals"]["total_with_visits"] for summary in complete]
+    subtotal_values = [summary["totals"]["known_total_with_visits"] for summary in summaries]
+    known = [value for value in subtotal_values if value is not None]
+    all_complete = bool(summaries) and len(complete) == len(summaries)
+    complete_total = sum(values) if values else None
+    complete_total = complete_total if valid_cost(complete_total) else None
+    complete_mean = complete_total / len(values) if complete_total is not None else None
+    known_subtotal = sum(known) if known else None
+    known_subtotal = known_subtotal if valid_cost(known_subtotal) else None
+    details = [detail for analysis in analyses if isinstance(analysis, dict)
+               for detail in (analysis.get("cost_details") or [])
+               if isinstance(detail, dict) and valid_cost(detail.get("cost"))]
+    return {
+        "n": len(complete),
+        "cases": len(summaries),
+        "partial_cases": sum(summary["pricing_status"] == "partial" for summary in summaries),
+        "unknown_cases": sum(summary["pricing_status"] == "unknown" for summary in summaries),
+        "unpriced_tests": sum(summary["unpriced_test_count"] or 0 for summary in summaries),
+        "unknown_coverage_cases": sum(summary["unpriced_test_count"] is None for summary in summaries),
+        "mean": complete_mean if all_complete else None,
+        "total": complete_total if all_complete else None,
+        "complete_case_mean": complete_mean,
+        "complete_case_total": complete_total,
+        "known_subtotal_with_visits": known_subtotal,
+        "grounded_tests": sum(detail.get("method") == "cpt_lookup" for detail in details),
+        "llm_tests": sum(detail.get("method") in ("llm_only", "llm_fallback", "batch_llm_only") for detail in details),
+    }
+
+
+def _cost_summary_html(analysis: dict[str, Any]) -> str:
+    summary = cost_summary(analysis)
+    totals = summary["totals"]
+    return (
+        f"<p><strong>Pricing status:</strong> {summary['pricing_status']}</p>"
+        f"<p><strong>Priced / unpriced unique tests:</strong> "
+        f"{summary['priced_test_count']} / {summary['unpriced_test_count']}</p>"
+        f"<p><strong>Total Tests Cost:</strong> {_money(totals['tests_only'])}</p>"
+        f"<p><strong>Clinician Visits Cost:</strong> {_money(totals['clinician_visits'])}</p>"
+        f"<p><strong>Total Cost:</strong> {_money(totals['total_with_visits'])}</p>"
+        f"<p><strong>Known test subtotal:</strong> {_money(totals['known_tests_subtotal'])}</p>"
+        f"<p><strong>Known subtotal with visits:</strong> {_money(totals['known_total_with_visits'])}</p>"
+    )
 
 def determine_common_method(results: List[Dict[str, Any]]) -> str:
     """
@@ -236,7 +304,8 @@ def load_results_from_json(json_dir: str, limit: Optional[int] = None) -> List[D
 
 def generate_summary_file(results: List[Dict[str, Any]], base_dir: str, config: HarnessConfig, report_text: str = "") -> str:
     """Generate a text summary file from results."""
-    correct = [r for r in results if r.get("correct", False)]
+    valid = [result for result in results if is_completed_result(result)]
+    correct = [result for result in valid if result.get("correct", False)]
     summary_file = f"{base_dir}/summary.txt"
     
     parallel_mode = config.max_workers > 1
@@ -244,7 +313,7 @@ def generate_summary_file(results: List[Dict[str, Any]], base_dir: str, config: 
     mode_str = "Parallel" if parallel_mode else "Sequential"
     summary_content = f"{mode_str} processing completed at {datetime.datetime.now()}\n"
     summary_content += f"Total cases processed: {len(results)}\n"
-    summary_content += f"Correct diagnoses rate: {len(correct)}/{len(results)}\n"
+    summary_content += f"Correct diagnoses rate: {len(correct)}/{len(valid)} completed cases; {len(results) - len(valid)} incomplete\n"
     summary_content += f"Model: {config.model}\n"
     summary_content += f"Agent: {config.agent}\n"
     summary_content += f"Test runner: BatchTestRunner\n"
@@ -286,7 +355,8 @@ def generate_summary_file(results: List[Dict[str, Any]], base_dir: str, config: 
 
 def print_console_summary(summary_file: str, results: List[Dict[str, Any]]) -> None:
     """Print summary to console."""
-    correct = [r for r in results if r.get("correct", False)]
+    valid = [result for result in results if is_completed_result(result)]
+    correct = [result for result in valid if result.get("correct", False)]
     
     print(f"Summary saved to {summary_file}")
     print("\nSummary:")
@@ -294,7 +364,7 @@ def print_console_summary(summary_file: str, results: List[Dict[str, Any]]) -> N
     with open(summary_file, 'r') as f:
         print(f.read())
     print("-" * 50)
-    print(f"All processing completed. {len(correct)}/{len(results)} correct diagnoses.")
+    print(f"Processed {len(results)} records. {len(correct)}/{len(valid)} completed diagnoses correct; {len(results) - len(valid)} incomplete.")
 
 
 def generate_cost_analysis(results: List[Dict[str, Any]], config: HarnessConfig) -> None:
@@ -303,7 +373,9 @@ def generate_cost_analysis(results: List[Dict[str, Any]], config: HarnessConfig)
         print("\nCost analysis disabled (use without --no-compute-costs to enable).")
         return
 
-    print("\nGenerating cost estimation for all requested tests...")
+    valid = [result for result in results if is_completed_result(result)]
+    print(f"\nClinical cost population: {len(valid)} completed diagnoses; "
+          f"{len(results) - len(valid)} incomplete diagnoses excluded.")
 
     # Get all costing methods present in results
     methods = get_cost_analysis_methods(results)
@@ -312,72 +384,19 @@ def generate_cost_analysis(results: List[Dict[str, Any]], config: HarnessConfig)
         print("No cost analyses found in results.")
         return
 
-    # Collect all requested tests from results
-    all_requested_tests : list[str] = []
-    for result in results:
-        if 'requested_tests' in result:
-            all_requested_tests.extend(result['requested_tests'])
-
-    total_unique_tests_across_cases = len(set(all_requested_tests)) if all_requested_tests else 0
-    total_requests_across_cases = len(all_requested_tests)
-
-    # Process cost analysis for each method
     for method in methods:
-        all_cost_analyses = get_cost_analyses_for_method(results, method)
-
-        if not all_cost_analyses:
-            continue
-
-        # Method name for display (use short names)
-        method_display = get_method_display_name(method)
-
-        total_cases_with_costs = len(all_cost_analyses)
-        total_rounds_across_cases = sum(analysis.get('num_rounds', 1) for analysis in all_cost_analyses)
-
-        # Aggregate totals from individual cases
-        aggregate_tests_cost = sum(analysis['totals']['tests_only'] for analysis in all_cost_analyses if 'totals' in analysis)
-        aggregate_visits_cost = sum(analysis['totals']['clinician_visits'] for analysis in all_cost_analyses if 'totals' in analysis)
-        aggregate_total_cost = sum(analysis['totals']['total_with_visits'] for analysis in all_cost_analyses if 'totals' in analysis)
-
-        # Calculate test method breakdown (for individual test pricing methods within the overall costing method)
-        total_cpt_tests = 0
-        total_llm_tests = 0
-        total_failed_tests = 0
-        total_costed_tests = 0
-
-        for analysis in all_cost_analyses:
-            cost_details = analysis.get('cost_details', [])
-            for detail in cost_details:
-                test_method = detail.get('method', 'unknown')
-                if test_method == 'failure':
-                    total_failed_tests += 1
-                elif test_method == 'cpt_lookup':
-                    total_cpt_tests += 1
-                    total_costed_tests += 1
-                elif test_method in ('llm_fallback', 'llm_only', 'batch_llm_only'):
-                    total_llm_tests += 1
-                    total_costed_tests += 1
-
-        print("\n" + "="*60)
-        print(f"AGGREGATE COST SUMMARY ({method_display})")
-        print("="*60)
-        print(f"Cases with cost analysis: {total_cases_with_costs}")
-        print(f"Total unique tests across all cases: {total_unique_tests_across_cases}")
-        print(f"Total test requests across all cases: {total_requests_across_cases}")
-        print(f"Costed tests: {total_costed_tests}")
-        print(f"Test pricing methods - CPT: {total_cpt_tests}, LLM: {total_llm_tests}, Failed: {total_failed_tests}")
-        print(f"Total clinician visits across all cases: {total_rounds_across_cases}")
-        print(f"\nCost Analysis:")
-        print(f"  Aggregate cost - Tests only: ${aggregate_tests_cost:,.0f}")
-        print(f"  Aggregate cost - Clinician visits: ${aggregate_visits_cost:,.0f}")
-        print(f"  Aggregate total cost: ${aggregate_total_cost:,.0f}")
-        print(f"\n  Per-Case Averages:")
-        print(f"    Average total cost per case: ${round(aggregate_total_cost / total_cases_with_costs) if total_cases_with_costs else 0:,}")
-        print(f"    Average test cost per case: ${round(aggregate_tests_cost / total_cases_with_costs) if total_cases_with_costs else 0:,}")
-        print(f"    Average visit cost per case: ${round(aggregate_visits_cost / total_cases_with_costs) if total_cases_with_costs else 0:,}")
-        print(f"    Average visits per case: {total_rounds_across_cases / total_cases_with_costs if total_cases_with_costs else 0:.2f}")
-        print("="*60)
-
+        stats = _cost_statistics([result.get(f"cost_analysis_{method}") for result in valid])
+        print(f"\nAGGREGATE COST SUMMARY ({get_method_display_name(method)})")
+        print(f"Complete cases: {stats['n']}/{stats['cases']}; "
+              f"partial: {stats['partial_cases']}; unknown: {stats['unknown_cases']}")
+        print(f"Unpriced unique tests: {stats['unpriced_tests']}; "
+              f"cases with unknown coverage: {stats['unknown_coverage_cases']}")
+        print(f"Grounded tests: {stats['grounded_tests']}; LLM-priced tests: {stats['llm_tests']}")
+        print(f"Aggregate total cost: {_money(stats['total'])}")
+        print(f"Mean cost per case: {_money(stats['mean'])}")
+        print(f"Complete-case subtotal: {_money(stats['complete_case_total'])}")
+        print(f"Known subtotal with visits (includes partial or unknown pricing): "
+              f"{_money(stats['known_subtotal_with_visits'])}")
     print("Individual case cost analyses are saved in each case's JSON file.")
 
 
@@ -386,12 +405,13 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
     """Generate an HTML overview of all results."""
     html_file = f"{html_dir}/overview.html"
 
-    correct = [r for r in results if r.get("correct", False)]
-    accuracy = len(correct) / len(results) if results else 0
+    valid = [result for result in results if is_completed_result(result)]
+    correct = [result for result in valid if result.get("correct", False)]
+    accuracy = len(correct) / len(valid) if valid else 0
 
     # Calculate ICU statistics
-    icu_cases = [r for r in results if r.get("icu_metadata", {}).get("current_admission_icu", False)]
-    non_icu_cases = [r for r in results if not r.get("icu_metadata", {}).get("current_admission_icu", False)]
+    icu_cases = [r for r in valid if r.get("icu_metadata", {}).get("current_admission_icu", False)]
+    non_icu_cases = [r for r in valid if not r.get("icu_metadata", {}).get("current_admission_icu", False)]
     icu_correct = [r for r in icu_cases if r.get("correct", False)]
     non_icu_correct = [r for r in non_icu_cases if r.get("correct", False)]
 
@@ -402,74 +422,13 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
     # Get all costing methods present in results
     methods = get_cost_analysis_methods(results)
 
-    # Calculate total costs for ALL methods
-    method_stats = {}  # method -> {agent: {...}, true: {...}}
-
-    for method in methods:
-        cost_key = f"cost_analysis_{method}"
-        cost_true_key = f"cost_analysis_actual_workup_{method}"
-
-        # Initialize stats for this method
-        agent_stats = {
-            'total_cost': 0,
-            'cases_with_costs': 0,
-            'total_tests': 0,
-            'cpt_tests': 0,
-            'llm_tests': 0,
-            'failed_tests': 0,
+    method_stats = {
+        method: {
+            "agent": _cost_statistics([result.get(f"cost_analysis_{method}") for result in valid]),
+            "true": _cost_statistics([result.get(f"cost_analysis_actual_workup_{method}") for result in valid]),
         }
-
-        true_stats = {
-            'total_cost': 0,
-            'cases_with_costs': 0,
-            'total_tests': 0,
-            'cpt_tests': 0,
-            'llm_tests': 0,
-            'failed_tests': 0,
-        }
-
-        # Calculate agent cost stats
-        for r in results:
-            cost_analysis = r.get(cost_key, {})
-            if cost_analysis:
-                agent_stats['total_cost'] += cost_analysis.get("totals", {}).get("total_with_visits", 0)
-                agent_stats['cases_with_costs'] += 1
-
-                # Count test method breakdown
-                cost_details = cost_analysis.get("cost_details", [])
-                for detail in cost_details:
-                    agent_stats['total_tests'] += 1
-                    test_method = detail.get("method", "unknown")
-                    if test_method == "failure":
-                        agent_stats['failed_tests'] += 1
-                    elif test_method == "cpt_lookup":
-                        agent_stats['cpt_tests'] += 1
-                    elif test_method in ("llm_fallback", "llm_only", "batch_llm_only"):
-                        agent_stats['llm_tests'] += 1
-
-        # Calculate true cost stats
-        for r in results:
-            cost_analysis_actual_workup = r.get(cost_true_key, {})
-            if cost_analysis_actual_workup:
-                true_stats['total_cost'] += cost_analysis_actual_workup.get("totals", {}).get("total_with_visits", 0)
-                true_stats['cases_with_costs'] += 1
-
-                # Count test method breakdown
-                cost_details = cost_analysis_actual_workup.get("cost_details", [])
-                for detail in cost_details:
-                    true_stats['total_tests'] += 1
-                    test_method = detail.get("method", "unknown")
-                    if test_method == "failure":
-                        true_stats['failed_tests'] += 1
-                    elif test_method == "cpt_lookup":
-                        true_stats['cpt_tests'] += 1
-                    elif test_method in ("llm_fallback", "llm_only", "batch_llm_only"):
-                        true_stats['llm_tests'] += 1
-
-        method_stats[method] = {
-            'agent': agent_stats,
-            'true': true_stats
-        }
+        for method in methods
+    }
 
     # Add case set info to title if filtering
     title_suffix = f" - {case_set}" if case_set else ""
@@ -725,14 +684,18 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
     
     <div class="summary">
         <h2>Overall Performance</h2>
+        <p>Accuracy and aggregate clinical costs use {len(valid)} completed diagnoses;
+        {len(results) - len(valid)} incomplete diagnoses are excluded. Missing or partial
+        pricing remains in cost coverage for completed diagnoses.</p>
         <div class="stats">
             <div class="stat-box">
                 <div class="accuracy">{accuracy:.1%}</div>
                 <div>Accuracy</div>
             </div>
             <div class="stat-box">
-                <div class="accuracy">{len(correct)}/{len(results)}</div>
-                <div>Correct Diagnoses</div>
+                <div class="accuracy">{len(correct)}/{len(valid)}</div>
+                <div>Correct Completed Diagnoses</div>
+                <div>{len(results) - len(valid)} incomplete diagnoses</div>
             </div>
             <div class="stat-box">
                 <div class="accuracy">{len(results)}</div>
@@ -744,105 +707,19 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
     # Sort methods to ensure unified_cpt_llm appears first if present
     sorted_methods = sorted(methods, key=lambda m: (m != "unified_cpt_llm", m))
 
-    # Show all Agent Cost panels first
-    for method in sorted_methods:
-        stats = method_stats.get(method, {})
-        agent_stats = stats.get('agent', {})
-        method_display = get_method_display_name(method)
-
-        # Determine icon based on method
-        icon = "📚" if method == "unified_cpt_llm" else "🤖"
-
-        # Agent Cost Panel (only if agent costs exist)
-        if agent_stats.get('cases_with_costs', 0) > 0:
-            total_cost = agent_stats['total_cost']
-            cases = agent_stats['cases_with_costs']
-            avg_cost = round(total_cost / cases) if cases else 0
-
-            all_tests = agent_stats['total_tests']
-            cpt_tests = agent_stats['cpt_tests']
-            llm_tests = agent_stats['llm_tests']
-            failed_tests = agent_stats['failed_tests']
-
-            # Build breakdown string: "All Tests: N [ CPT / LLM : N / N ]"
-            breakdown_parts = []
-            if cpt_tests > 0:
-                breakdown_parts.append(f"CPT")
-            if llm_tests > 0:
-                breakdown_parts.append(f"LLM")
-
-            breakdown_counts = []
-            if cpt_tests > 0:
-                breakdown_counts.append(str(cpt_tests))
-            if llm_tests > 0:
-                breakdown_counts.append(str(llm_tests))
-
-            if breakdown_parts:
-                breakdown_str = f"All Tests: {all_tests} [ {' / '.join(breakdown_parts)} : {' / '.join(breakdown_counts)} ]"
-            else:
-                breakdown_str = f"All Tests: {all_tests}"
-
-            # Add failure info if present
-            if failed_tests > 0:
-                breakdown_str += f' <strong style="color: #c0392b;">⚠️ {failed_tests} Failed</strong>'
-
+    for role, label in (("agent", "Agent"), ("true", "Actual Workup")):
+        for method in sorted_methods:
+            stats = method_stats[method][role]
             html_content += f"""
             <div class="stat-box">
-                <div class="accuracy">${total_cost:,.0f}</div>
-                <div>📊 Agent Cost ({icon} {method_display})</div>
-                <div><small style="color: #7f8c8d;">{cases} costed cases • <strong style="color: #2c3e50; font-size: 1.15em;">${avg_cost:,.0f}/case</strong></small></div>
-                <div><small style="color: #7f8c8d;">{breakdown_str}</small></div>
-            </div>
-"""
-
-    # Then show all Actual Workup Cost panels
-    for method in sorted_methods:
-        stats = method_stats.get(method, {})
-        true_stats = stats.get('true', {})
-        method_display = get_method_display_name(method)
-
-        # Determine icon based on method
-        icon = "📚" if method == "unified_cpt_llm" else "🤖"
-
-        # Actual Workup Cost Panel (only if true costs exist)
-        if true_stats.get('cases_with_costs', 0) > 0:
-            total_cost = true_stats['total_cost']
-            cases = true_stats['cases_with_costs']
-            avg_cost = round(total_cost / cases) if cases else 0
-
-            all_tests = true_stats['total_tests']
-            cpt_tests = true_stats['cpt_tests']
-            llm_tests = true_stats['llm_tests']
-            failed_tests = true_stats['failed_tests']
-
-            # Build breakdown string: "All Tests: N [ CPT / LLM : N / N ]"
-            breakdown_parts = []
-            if cpt_tests > 0:
-                breakdown_parts.append(f"CPT")
-            if llm_tests > 0:
-                breakdown_parts.append(f"LLM")
-
-            breakdown_counts = []
-            if cpt_tests > 0:
-                breakdown_counts.append(str(cpt_tests))
-            if llm_tests > 0:
-                breakdown_counts.append(str(llm_tests))
-
-            if breakdown_parts:
-                breakdown_str = f"All Tests: {all_tests} [ {' / '.join(breakdown_parts)} : {' / '.join(breakdown_counts)} ]"
-            else:
-                breakdown_str = f"All Tests: {all_tests}"
-
-            # Add failure info if present
-            if failed_tests > 0:
-                breakdown_str += f' <strong style="color: #c0392b;">⚠️ {failed_tests} Failed</strong>'
-
-            html_content += f"""
-            <div class="stat-box">
-                <div class="accuracy">${total_cost:,.0f}</div>
-                <div>💰 Actual Workup Cost ({icon} {method_display})</div>
-                <div><small style="color: #7f8c8d;">{cases} costed cases • <strong style="color: #2c3e50; font-size: 1.15em;">${avg_cost:,.0f}/case</strong></small></div>
-                <div><small style="color: #7f8c8d;">{breakdown_str}</small></div>
+                <div class="accuracy">{_money(stats['total'])}</div>
+                <div>{label} Cost ({get_method_display_name(method)})</div>
+                <div>Complete cases: {stats['n']}/{stats['cases']}; partial: {stats['partial_cases']}; unknown: {stats['unknown_cases']}</div>
+                <div>Mean per case: {_money(stats['mean'])}</div>
+                <div>Complete-case subtotal: {_money(stats['complete_case_total'])}</div>
+                <div>Known subtotal with visits: {_money(stats['known_subtotal_with_visits'])}</div>
+                <div>Grounded tests: {stats['grounded_tests']}; LLM-priced tests: {stats['llm_tests']}</div>
+                <div>Unpriced tests: {stats['unpriced_tests']}; cases with unknown coverage: {stats['unknown_coverage_cases']}</div>
             </div>
 """
 
@@ -912,10 +789,11 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
 
     # Add individual case rows with detailed information
     for _, result in enumerate(results):
-        is_correct = result.get("correct", False)
+        is_complete = is_completed_result(result)
+        is_correct = is_complete and result.get("correct", False)
         case_id = result.get("case_id", "Unknown")
         case_title = result.get("case_title", f"Case {case_id}")
-        model_diagnosis = result.get("model_diagnosis", "No diagnosis")
+        model_diagnosis = result.get("model_diagnosis") or result.get("error_message", "No diagnosis")
         actual_diagnosis = result.get("actual_diagnosis", "Unknown")
         model_reasoning = result.get("model_reasoning", "")
 
@@ -958,67 +836,18 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
 
         result_methods.sort(key=method_sort_key)
 
-        # Build cost display with all methods
         cost_display_lines = []
-        cost_display_lines.append('<div style="font-size: 0.85em; color: #7f8c8d; margin-bottom: 0;">Agent Cost</div>')
-
-        for method in result_methods:
-            cost_key = f"cost_analysis_{method}"
-            cost_analysis = result.get(cost_key, {})
-            total_cost = cost_analysis.get("totals", {}).get("total_with_visits", 0) if cost_analysis else 0
-
-            # Check for failures
-            cost_details = cost_analysis.get("cost_details", [])
-            failed_tests = [d for d in cost_details if d.get("method") == "failure"]
-            has_failures = len(failed_tests) > 0
-
-            # Get display name and icon
-            method_display = get_method_display_name(method)
-            icon = "📚" if method == "unified_cpt_llm" else "🤖"
-
-            cost_line = f'<div style="white-space: nowrap;">{icon} {method_display}: ${total_cost:,.0f}'
-            if has_failures:
-                cost_line += f' <span style="color: #c0392b;">⚠️{len(failed_tests)}</span>'
-            cost_line += '</div>'
-
-            cost_display_lines.append(cost_line)
-
-        # Add horizontal rule
-        cost_display_lines.append('<hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">')
-
-        # True costs section
-        has_true_costs = any(f"cost_analysis_actual_workup_{m}" in result for m in result_methods)
-
-        if has_true_costs:
-            cost_display_lines.append('<div style="font-size: 0.85em; color: #7f8c8d; margin-bottom: 0;">Actual Workup Cost</div>')
-
+        for prefix, label in (("cost_analysis", "Agent Cost"), ("cost_analysis_actual_workup", "Actual Workup Cost")):
+            cost_display_lines.append(f"<div>{label}</div>")
             for method in result_methods:
-                cost_true_key = f"cost_analysis_actual_workup_{method}"
-                cost_analysis_actual_workup = result.get(cost_true_key, {})
-                total_cost_true = cost_analysis_actual_workup.get("totals", {}).get("total_with_visits", 0) if cost_analysis_actual_workup else 0
+                analysis = result.get(f"{prefix}_{method}")
+                cost_display_lines.append(
+                    f"<div>{get_method_display_name(method)}: {html.escape(_cost_label(analysis))}</div>"
+                )
+        cost_display = "".join(cost_display_lines) if result_methods else "Unknown (not computed)"
 
-                if total_cost_true > 0:
-                    # Check for failures in true costs
-                    cost_true_details = cost_analysis_actual_workup.get("cost_details", [])
-                    failed_true_tests = [d for d in cost_true_details if d.get("method") == "failure"]
-                    has_true_failures = len(failed_true_tests) > 0
-
-                    method_display = get_method_display_name(method)
-                    icon = "📚" if method == "unified_cpt_llm" else "🤖"
-
-                    cost_line = f'<div style="white-space: nowrap;">💰{icon} {method_display}: ${total_cost_true:,.0f}'
-                    if has_true_failures:
-                        cost_line += f' <span style="color: #c0392b;">⚠️{len(failed_true_tests)}</span>'
-                    cost_line += '</div>'
-
-                    cost_display_lines.append(cost_line)
-        else:
-            cost_display_lines.append('<div style="font-size: 0.85em; color: #7f8c8d;">No true costs computed</div>')
-
-        cost_display = ''.join(cost_display_lines) if cost_display_lines else "N/A"
-
-        status_icon = "✅" if is_correct else "❌"
-        row_class = "correct" if is_correct else "incorrect"
+        status_icon = "⚠ Incomplete" if not is_complete else "✅" if is_correct else "❌"
+        row_class = "incomplete" if not is_complete else "correct" if is_correct else "incorrect"
 
         # Prepare ICU badge if ICU metadata is available
         icu_badge = ""
@@ -1409,7 +1238,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
 """
                     for detail in cost_details:
                         test_name = detail.get("test_name", "Unknown")
-                        test_cost = detail.get("cost", 0) or 0
+                        test_cost = detail.get("cost") if detail.get("method") != "failure" else None
                         explanation = detail.get("explanation", "")
                         test_method = detail.get("method", "unknown")
 
@@ -1423,7 +1252,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
 
                         html_content += f"""
                                 <div style="margin-bottom: 10px; padding: 8px; background-color: #f8f9fa; border-left: 3px solid {border_color};">
-                                    <strong>{icon}{html.escape(test_name)}</strong>: ${test_cost:,.0f} <span style="font-size: 11px; color: #888; font-weight: normal;">({html.escape(test_method)})</span><br>
+                                    <strong>{icon}{html.escape(test_name)}</strong>: {_money(test_cost)} <span style="font-size: 11px; color: #888; font-weight: normal;">({html.escape(test_method)})</span><br>
                                     <small style="color: #666;">{html.escape(explanation)}</small>
                                 </div>
 """
@@ -1437,9 +1266,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
                         <div class="reasoning">
                             <div class="reasoning-label">Cost Summary:</div>
                             <div class="reasoning-content">
-                                <p><strong>Total Tests Cost:</strong> ${totals.get('tests_only', 0):,}</p>
-                                <p><strong>Clinician Visits Cost:</strong> ${totals.get('clinician_visits', 0):,}</p>
-                                <p><strong>Total Cost:</strong> ${totals.get('total_with_visits', 0):,}</p>
+                                {_cost_summary_html(cost_analysis_method)}
                                 <p><strong>Number of Rounds:</strong> {cost_analysis_method.get('num_rounds', 1)}</p>
                                 <p><strong>Unique Tests:</strong> {cost_analysis_method.get('total_unique_tests', 0)}</p>
                             </div>
@@ -1471,7 +1298,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
 """
                     for detail in cost_true_details:
                         test_name = detail.get("test_name", "Unknown")
-                        test_cost = detail.get("cost", 0) or 0
+                        test_cost = detail.get("cost") if detail.get("method") != "failure" else None
                         explanation = detail.get("explanation", "")
                         test_method = detail.get("method", "unknown")
 
@@ -1485,7 +1312,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
 
                         html_content += f"""
                                 <div style="margin-bottom: 10px; padding: 8px; background-color: #f8f9fa; border-left: 3px solid {border_color};">
-                                    <strong>{icon}{html.escape(test_name)}</strong>: ${test_cost:,} <span style="font-size: 11px; color: #888; font-weight: normal;">({html.escape(test_method)})</span><br>
+                                    <strong>{icon}{html.escape(test_name)}</strong>: {_money(test_cost)} <span style="font-size: 11px; color: #888; font-weight: normal;">({html.escape(test_method)})</span><br>
                                     <small style="color: #666;">{html.escape(explanation)}</small>
                                 </div>
 """
@@ -1499,9 +1326,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
                         <div class="reasoning">
                             <div class="reasoning-label">Actual Workup Cost Summary:</div>
                             <div class="reasoning-content">
-                                <p><strong>Total Tests Cost:</strong> ${totals_true.get('tests_only', 0):,}</p>
-                                <p><strong>Clinician Visits Cost:</strong> ${totals_true.get('clinician_visits', 0):,}</p>
-                                <p><strong>Total Cost:</strong> ${totals_true.get('total_with_visits', 0):,}</p>
+                                {_cost_summary_html(cost_analysis_actual_workup_method)}
                                 <p><strong>Number of Rounds:</strong> {cost_analysis_actual_workup_method.get('num_rounds', 1)}</p>
                                 <p><strong>Unique Tests:</strong> {cost_analysis_actual_workup_method.get('total_unique_tests', 0)}</p>
                             </div>
@@ -1772,34 +1597,13 @@ CI_CONFIDENCE = 0.95
 
 
 def case_is_errored(result: Dict[str, Any]) -> bool:
-    """True if a case looks like a failed/incomplete run rather than a real diagnosis.
-
-    Mirrors the harness completion check: an error string in ``model_diagnosis`` or any
-    test that failed to price in a stored cost analysis.
-    """
-    diagnosis = result.get("model_diagnosis", "")
-    if isinstance(diagnosis, str):
-        low = diagnosis.lower()
-        if "error code:" in low or "exception" in low or low.startswith("error"):
-            return True
-    for key, value in result.items():
-        if key.startswith("cost_analysis_") and isinstance(value, dict):
-            for detail in value.get("cost_details", []) or []:
-                if detail.get("method") == "failure":
-                    return True
-    return False
+    """Diagnostic completion is independent of successful clinical pricing."""
+    return not is_completed_result(result)
 
 
 def case_cost(result: Dict[str, Any], method: str) -> Optional[float]:
-    """total_with_visits for a case under a given costing method, or None if absent."""
-    analysis = result.get(f"cost_analysis_{method}")
-    if not isinstance(analysis, dict):
-        return None
-    totals = analysis.get("totals")
-    if not isinstance(totals, dict):
-        return None
-    value = totals.get("total_with_visits")
-    return float(value) if value is not None else None
+    """Complete clinical total only; legacy partial subtotals are excluded."""
+    return cost_summary(result.get(f"cost_analysis_{method}"))["totals"]["total_with_visits"]
 
 
 def bootstrap_ci(data: List[float], n_bootstrap: int = BOOTSTRAP_RESAMPLES,
@@ -1832,8 +1636,8 @@ def accuracy_binomial_ci(accuracy: float, n: int, confidence_level: float = CI_C
 def _summarize_cases(cases: List[Dict[str, Any]], methods: List[str], compute_ci: bool) -> Dict[str, Any]:
     """Compute accuracy + per-method cost stats for one (group, case set) bucket.
 
-    Errored cases are excluded from stats but counted. Uneven repetitions across cases are
-    flagged. Costs are reported as mean per case and run total, per costing method present.
+    Incomplete diagnoses are excluded from accuracy; pricing failures are not.
+    Cohort costs require complete coverage, with complete-case subtotals shown separately.
     """
     errored = [c for c in cases if case_is_errored(c)]
     valid = [c for c in cases if not case_is_errored(c)]
@@ -1849,16 +1653,9 @@ def _summarize_cases(cases: List[Dict[str, Any]], methods: List[str], compute_ci
 
     costs: Dict[str, Any] = {}
     for method in methods:
-        vals = [v for v in (case_cost(c, method) for c in valid) if v is not None]
-        if not vals:
-            continue
-        entry: Dict[str, Any] = {
-            "n": len(vals),
-            "mean": sum(vals) / len(vals),
-            "total": sum(vals),
-        }
-        if compute_ci:
-            entry["ci"] = bootstrap_ci(vals)
+        entry = _cost_statistics([case.get(f"cost_analysis_{method}") for case in valid])
+        if compute_ci and entry["mean"] is not None:
+            entry["ci"] = bootstrap_ci([case_cost(case, method) for case in valid])
         costs[method] = entry
 
     summary: Dict[str, Any] = {
@@ -1946,10 +1743,14 @@ def format_accuracy_cost_report(report: Dict[str, Any], title: str = "ACCURACY &
                 acc += f"  CI[{100 * lo:.1f}-{100 * hi:.1f}]"
             lines.append(f"  {cs:<11} acc {acc}")
             for method, c in s["costs"].items():
-                line = f"      cost[{method}] mean ${c['mean']:.2f}  total ${c['total']:.2f}"
+                line = (f"      cost[{method}] mean {_money(c['mean'])}  total {_money(c['total'])}"
+                        f"  complete {c['n']}/{c['cases']}; partial {c['partial_cases']}; unknown {c['unknown_cases']}")
                 if "ci" in c:
                     line += f"  CI[{c['ci'][0]:.2f}-{c['ci'][1]:.2f}]"
                 lines.append(line)
+                lines.append(f"        complete-case subtotal {_money(c['complete_case_total'])}; "
+                             f"known subtotal with visits {_money(c['known_subtotal_with_visits'])}; "
+                             f"unpriced tests {c['unpriced_tests']}; unknown coverage {c['unknown_coverage_cases']} cases")
             flags = []
             if s["errored"]:
                 flags.append(f"{s['errored']} errored (excluded)")

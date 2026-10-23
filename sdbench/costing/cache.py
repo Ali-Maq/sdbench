@@ -1,23 +1,143 @@
-"""CosmosDB based cacheing for test cost estimates.
+"""Cost estimates keyed by pricing inputs, with an optional CosmosDB store."""
 
-Cache key is (costing_method, test_name) tuple.
-"""
-
-import dataclasses
 import functools
+import hashlib
+import json
+import os
+from pathlib import Path
+import threading
 import traceback
 from typing import TYPE_CHECKING, Any
 
 from sdbench.config import CostingConfig
+from sdbench.costing.cost_types import valid_cost
+from sdbench.models import _configure_completion, _parse_headers
 
 if TYPE_CHECKING:
     from sdbench.costing.cost_types import CostEstimate
 
 
-@functools.cache
+CACHE_VERSION = 2
+_clients: dict[tuple[Any, ...], "CosmosDBCache"] = {}
+_clients_lock = threading.Lock()
+
+
+def _digest(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(encoded.encode()).hexdigest()
+
+
+def _file_state(path: Path) -> tuple[int, ...]:
+    stat = path.stat()
+    return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+
+
+@functools.lru_cache(maxsize=64)
+def _file_digest(path: Path, state: tuple[int, ...]) -> str:
+    # Stat on every lookup, but reread large charge masters only when changed.
+    with path.open("rb") as source:
+        digest = hashlib.file_digest(source, "sha256").hexdigest()
+    if _file_state(path) != state:
+        raise ValueError(f"Pricing source changed while being read: {path}")
+    return digest
+
+
+def file_fingerprint(path: str | Path) -> str:
+    resolved = Path(path).resolve()
+    return _file_digest(resolved, _file_state(resolved))
+
+
+# A running interpreter keeps its loaded code. Re-reading changed source files on
+# every lookup would incorrectly label old behavior with the new implementation.
+_IMPLEMENTATION_FINGERPRINTS = {
+    name: file_fingerprint(Path(__file__).parent / name)
+    for name in ("costing.py", "cpt_matcher.py", "llm_estimater.py", "llm_batch_estimator.py", "../models.py")
+}
+
+
+def embedding_identity(config: CostingConfig) -> str:
+    """Identity for the charge-master rows, embedding route and preprocessing."""
+    if os.getenv("OPENROUTER_API_KEY"):
+        provider = {
+            "url": "https://openrouter.ai/api/v1",
+            "model": "openai/text-embedding-3-large",
+        }
+    else:
+        provider = {
+            "url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            "model": "text-embedding-3-large",
+        }
+    return _digest({
+        "version": CACHE_VERSION,
+        "source": file_fingerprint(config.resolved_costing_source_file_path),
+        "provider": provider,
+        "implementation": _IMPLEMENTATION_FINGERPRINTS["cpt_matcher.py"],
+    })
+
+
+def pricing_identity(config: CostingConfig) -> str:
+    """Fingerprint effective pricing inputs without persisting credentials or paths.
+
+    Provider model/deployment names must still be pinned by the caller: their remote
+    weights cannot be fingerprinted offline. Pricing files and provider settings
+    must remain fixed while a price request is in flight. Restart the interpreter
+    after changing implementation files; hot reloads are not supported.
+    """
+    args = config.costing_model_args
+    credential_variable = args.pop("openrouter_api_key_var", "OPENROUTER_API_KEY")
+    provider, model, args = _configure_completion(config.costing_model, **args)
+    route: dict[str, Any] = {"provider": provider, "model": model}
+    if provider == "azure":
+        route.update(
+            endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview"),
+        )
+    elif provider == "local":
+        route["endpoint"] = args.pop("local_model_base_url", None) or os.getenv(
+            "SDBENCH_LOCAL_BASE_URL"
+        )
+        args.pop("local_model_api_key", None)
+        headers = _parse_headers(
+            args.pop("local_model_headers", None) or os.getenv("SDBENCH_LOCAL_HEADERS")
+        ) or {}
+        route["headers"] = {
+            key: value for key, value in headers.items()
+            if key.lower() not in {"authorization", "api-key", "x-api-key"}
+        }
+    else:
+        route["credential_variable"] = credential_variable
+
+    implementation_files = ["costing.py", "../models.py"]
+    if config.costing_method == "batch_llm_only":
+        implementation_files.append("llm_batch_estimator.py")
+    else:
+        implementation_files.append("llm_estimater.py")
+    inputs: dict[str, Any] = {
+        "version": CACHE_VERSION,
+        "method": config.costing_method,
+        "route": route,
+        "args": args,
+        "implementation": [_IMPLEMENTATION_FINGERPRINTS[name] for name in implementation_files],
+    }
+    if config.costing_method == "unified_cpt_llm":
+        inputs["grounding"] = embedding_identity(config)
+    return _digest(inputs)
+
+
 def get_cache(config: CostingConfig) -> "CosmosDBCache":
-    """Get or create a cached CosmosDBCache instance for the given config."""
-    return CosmosDBCache(config)
+    """Reuse connections independently of potentially nested model arguments."""
+    if not config.costing_cache_cosmosdb_enabled:
+        return CosmosDBCache(config)
+    key = (
+        config.costing_cache_cosmosdb_endpoint,
+        config.costing_cache_cosmosdb_database,
+        config.costing_cache_cosmosdb_container,
+        config.costing_cache_use_managed_identity,
+    )
+    with _clients_lock:
+        if key not in _clients:
+            _clients[key] = CosmosDBCache(config)
+        return _clients[key]
 
 
 def get_cached_cost(config: CostingConfig, test_name: str) -> "CostEstimate | None":
@@ -93,38 +213,13 @@ class CosmosDBCache:
 
     @staticmethod
     def normalize_key(config: CostingConfig, key: str) -> str:
-        """Normalize a cache key for consistent lookups."""
-        normalized = key.lower().strip()
-        return f"{config.costing_method}:{config.costing_model}:{normalized}"
+        """A versioned identity; old method/model/name-only entries cannot match."""
+        return f"v{CACHE_VERSION}:{pricing_identity(config)}:{_digest(key.lower().strip())}"
 
     @staticmethod
     def make_cosmosdb_safe_id(normalized_key: str) -> str:
-        r"""Convert a normalized key to a CosmosDB-safe ID for storage.
-
-        CosmosDB NoSQL API id field restrictions:
-        - Cannot contain: / \ ? #
-        - Max length: ~1KB (1024 bytes when UTF-8 encoded)
-        - No leading/trailing whitespace
-
-        Args:
-            normalized_key: The already normalized cache key
-
-        Returns:
-            A CosmosDB-safe ID that can be used as the document id
-        """
-        # Replace special characters that aren't allowed in CosmosDB keys
-        # Use safe replacements that maintain readability
-        safe_id = normalized_key.replace("/", "_")
-        safe_id = safe_id.replace("\\", "_")
-        safe_id = safe_id.replace("?", "_")
-        safe_id = safe_id.replace("#", "_")
-
-        # Ensure key doesn't exceed 1024 bytes when UTF-8 encoded
-        # Use conservative limit of 900 characters to account for UTF-8 encoding
-        if len(safe_id) > 900:
-            safe_id = safe_id[:900]
-
-        return safe_id
+        """Fixed ASCII IDs avoid forbidden characters and truncation collisions."""
+        return hashlib.sha256(normalized_key.encode()).hexdigest()
 
     def get(self, config: CostingConfig, key: str) -> "CostEstimate | None":
         """Look up a cached value using a point read.
@@ -152,9 +247,6 @@ class CosmosDBCache:
             # Validate the stored cache_key matches our normalized key
             stored_cache_key = cached_data.get("cache_key")
             if stored_cache_key != normalized_key:
-                # We must have had a key collision due to CosmosDB ID restrictions
-                # If this is an issue in practice, we can consider maintaining a list of cached
-                # items for a collided CosmosDB safe key
                 if self._debug:
                     print(
                         f"⚠️ Cache key mismatch: expected '{normalized_key}', got '{stored_cache_key}'"
@@ -174,6 +266,8 @@ class CosmosDBCache:
             cached_data.pop("_ts", None)
             cached_data.pop("cache_key", None)
 
+            if not valid_cost(cached_data.get("cost")) or cached_data.get("method") == "failure":
+                return None
             if self._debug:
                 print(f"✓ Cache hit for: '{normalized_key}'")
             return cached_data  # type: ignore[return-value]
@@ -195,7 +289,11 @@ class CosmosDBCache:
             key: The cache key (will be normalized automatically)
             value: The data to cache
         """
-        if not self.enabled:
+        if (
+            not self.enabled
+            or not valid_cost(value.get("cost"))
+            or value.get("method") == "failure"
+        ):
             return
 
         normalized_key = self.normalize_key(config, key)
@@ -206,7 +304,6 @@ class CosmosDBCache:
             cache_data = dict(value)
             cache_data["id"] = safe_id  # CosmosDB-safe ID for storage
             cache_data["cache_key"] = normalized_key  # Original normalized key for matching
-            cache_data["config"] = dataclasses.asdict(config)
 
             # Upsert the item (insert or update)
             self._container.upsert_item(body=cache_data)  # pyright: ignore[reportOptionalMemberAccess]

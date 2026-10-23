@@ -1,10 +1,26 @@
 # Verification and known limits
 
-Checks below were run on October 22, 2026 during [cleanup #2](https://github.com/Ali-Maq/sdbench/issues/2).
+Checks below cover [cleanup #2](https://github.com/Ali-Maq/sdbench/issues/2)
+and its costing, routing and resume follow-ups.
 They establish software execution, not clinical validity or equivalence to MAI-DxO.
 **No real patient was evaluated.**
 
-## Cleaned baseline
+## Follow-up verification
+
+| Check | Observed result |
+| --- | --- |
+| Python 3.12, all optional integrations | 217 tests passed, no skips |
+| Python 3.11, compatible optional integrations | 210 passed; seven Harbor-only tests skipped because Harbor requires Python 3.12 |
+| Python 3.11 compilation; Ruff F401/F811/F821/F841; whitespace | Passed |
+| Pricing regressions | Partial/all-failed/zero totals, legacy missing coverage, report/recost denominators and pricing exceptions preserving diagnoses |
+| Cache regressions | Effective routing/source identity, local FAISS rebuild/reuse, transient failure recovery, corrupt caches and interrupted/concurrent atomic writes |
+| Routing/resume regressions | Sequential and concurrent argument isolation, endpoint/credential changes, string IDs, malformed/mismatched records and completed pricing failures |
+| Browser inspection | Fictional partial-price report expands correctly; complete totals stay Unknown while known subtotal and unpriced tests remain visible |
+
+Provider calls in these tests are scripted. They validate execution and failure
+handling, not the medical correctness of a price, diagnosis or judge score.
+
+## Original cleanup verification (02db899)
 
 | Check | Observed result |
 | --- | --- |
@@ -48,21 +64,54 @@ publishing assets, duplicate documentation and unused helpers. It also corrects:
 - Retrying an exhausted role budget and misclassifying internal failures as bad requests.
 - Analysis without a frozen schedule, which could omit entirely missing pairs.
 
-## Remaining issues
+## Four follow-up corrections
 
-| Issue | Scope and current consequence |
+| Issue | Implemented correction |
 | --- | --- |
-| [#7](https://github.com/Ali-Maq/sdbench/issues/7): pricing-cache identity | Optional stock cache omits pricing-source inputs; keep it disabled across source changes |
-| [#8](https://github.com/Ali-Maq/sdbench/issues/8): partial clinical totals | Failed prices can leave a subtotal in raw results; inspect per-test errors before comparison |
-| [#10](https://github.com/Ali-Maq/sdbench/issues/10): shared provider settings | Stock routing can mutate nested caller/default settings across calls |
-| [#11](https://github.com/Ali-Maq/sdbench/issues/11): stock resume | Nonnumeric IDs and valid diagnoses containing “error” can be rerun |
+| [#7](https://github.com/Ali-Maq/sdbench/issues/7): pricing-cache identity | Versioned effective routing/model arguments, pricing implementation and charge-master/embedding fingerprints; matcher and disk-index invalidation |
+| [#8](https://github.com/Ali-Maq/sdbench/issues/8): partial clinical totals | Explicit complete/partial/unknown status, nullable complete totals, known subtotals and pricing coverage across raw results, CLI and reports |
+| [#10](https://github.com/Ali-Maq/sdbench/issues/10): shared provider settings | Request-local nested routing values; cached clients follow current endpoint, API version and credentials |
+| [#11](https://github.com/Ali-Maq/sdbench/issues/11): stock resume | String case IDs and explicit completion/identity checks; diagnosis text is never an error channel |
 
-The latter two affect the stock harness/provider path, not Harbor's separate
-provider implementation and recovery. Clinical costing is not integrated into
-Harbor. Failed encounters have raw evidence but no completed clinical HTML view.
-Semantic leakage, recorded-only retrieval, longitudinal episode preparation,
-one-shot controls and evaluator ensembles remain unimplemented or unevaluated.
-See the [study plan](STUDY_PROTOCOL.md) before interpreting this as clinical readiness.
+Pricing exceptions preserve completed diagnostic and judge evidence. Resume does
+not repeat those calls; recost retries missing pricing separately. Old records
+without declared pricing coverage or judge evidence are treated conservatively.
+Report rows distinguish incomplete diagnoses from incorrect completed diagnoses.
+All aggregate clinical-cost reports use completed diagnoses, retain incomplete
+pricing in that population and disclose the excluded diagnostic failures.
+
+Claude's read-only follow-up review and independent review identified the pricing
+exception path, failed-cache recovery and misleading coverage/status displays.
+Each correction has a focused offline regression. Reviewer conclusions are not
+substitutes for execution evidence.
+
+## Remaining validation and study work
+
+No live Cosmos service or real pricing-provider integration was exercised in
+these follow-ups. FAISS and cache recovery use local files and scripted embedding
+responses. Routing tests use mocked SDK transports. Remote changes behind mutable
+model aliases cannot be detected offline. Keep inputs fixed during a price call
+and restart processes after code changes. Old cache/index files are ignored,
+not deleted. Per-test batch-price caching remains memoization of a test estimate;
+it does not replay the original batch prompt or reproduce stochastic generations.
+
+The stock judge's permissive score parser remains upstream behavior; stock resume
+checks saved score/flag consistency and nonempty output, not a second clinical
+judgment. Harbor already enforces its stricter declared score format. Stock
+routing/resume changes do not replace Harbor's own provider path or recovery.
+
+Before the first patient run, implement private episode preparation and the
+source-linked recorded-only contract, freeze the expert reference and disclosure
+window, and verify the intended provider route. These are specified in the
+[study plan](STUDY_PROTOCOL.md#what-remains-before-the-first-patient-run).
+
+Clinical costing inside Harbor, invoice reconciliation, live paired gatekeeper
+results, semantic disclosure evaluation, one-shot controls, evaluator ensembles
+and patient-level cohort analysis remain unimplemented or unmeasured. Failed
+encounters have raw evidence but no completed clinical HTML view. Native
+Codex/Claude Code clinical tool adapters and full clinical Langfuse export are
+not implemented. Original MAI-DxO remains unavailable in the inspected sources;
+this extension evaluates the released baseline.
 
 ## Historical fictional runs
 

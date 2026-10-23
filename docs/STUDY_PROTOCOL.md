@@ -1,6 +1,6 @@
 # Proposed longitudinal study
 
-**Design only. Patient evaluation is deferred until repository cleanup is complete.**
+**Design only. Patient evaluation is deferred pending the episode and evidence contract below.**
 The existing adapter runs the released SDBench baseline. It does not implement
 custom longitudinal episodes, a recorded-only gatekeeper, one-shot comparisons
 or evaluator ensembles. Original MAI-DxO is unavailable in the [inspected sources](SOURCES.md).
@@ -84,7 +84,30 @@ disclosure audit, tests, rounds, latency and all-role API usage. Separate medica
 cost estimates, token-rate estimates and invoiced charges. Freeze generation and
 wall-clock limits before held-out evaluation.
 
-## Implementation order after cleanup
+## What remains before the first patient run
+
+The costing, routing and resume fixes are software corrections. They do not yet
+make the proposed patient experiment executable:
+
+1. Freeze one initial-diagnosis episode: short opening, evidence window, disclosure
+   rules and the expert's reference conclusion. Reuse the existing specialist
+   records; do not infer the diagnostic target from the treatment alone.
+2. Add private custom-episode preparation to the Harbor adapter. The stock loader
+   accepts custom datasets, but the paired CLI accepts only synthetic/NEJM/MIMIC.
+3. Implement and test recorded-only responses, source references and separation
+   of gatekeeper evidence from the judge's answer. Missing findings must return
+   “not documented.” The released gatekeeper does not enforce this policy.
+4. Verify the intended deployment is approved for these records, then freeze
+   model versions, provider settings and limits. A fictional cloud smoke test
+   establishes connectivity, not permission to process patient records.
+
+Clinical costing inside Harbor, matched-evidence/one-shot controls, semantic
+disclosure auditing, episode-specific evaluator comparisons and patient-level
+cohort analysis are later study work. Live paired gatekeeper results and actual
+API bills remain unmeasured. Original MAI-DxO code/prompts/configuration are still
+needed to evaluate that system; they are not needed to test the released baseline.
+
+## Implementation order
 
 1. Prepare one private episode and reference from existing expert records.
 2. Implement source-linked evidence retrieval and test its access rules.

@@ -6,6 +6,7 @@ import dotenv
 
 from sdbench.config import CostingConfig, SDBenchConfig
 from sdbench.costing.costing import estimate_costs
+from sdbench.costing.cost_types import cost_summary
 
 
 def main():
@@ -86,15 +87,22 @@ def main():
         print()
 
         # Cost totals
-        totals = result["totals"]
-        print("=" * 60)
-        print("COST TOTALS")
-        print("=" * 60)
-        print(f"Tests only:              ${totals['tests_only']:>10.2f}")
-        print(f"Clinician visits:        ${totals['clinician_visits']:>10.2f}")
-        print(f"Total with visits:       ${totals['total_with_visits']:>10.2f}")
-        if totals["average_per_test"] > 0:
-            print(f"Average per test:        ${totals['average_per_test']:>10.2f}")
+        summary = cost_summary(result)
+        totals = summary["totals"]
+        print(f"Pricing status: {summary['pricing_status']}")
+        print(f"Priced unique tests: {summary['priced_test_count']}; "
+              f"unpriced: {summary['unpriced_test_count']}")
+        for label, field in (
+            ("Tests only", "tests_only"), ("Clinician visits", "clinician_visits"),
+            ("Total with visits", "total_with_visits"),
+            ("Known test subtotal", "known_tests_subtotal"),
+            ("Known subtotal with visits", "known_total_with_visits"),
+        ):
+            value = totals[field]
+            display = f"${value:,.2f}" if value is not None else "Unknown"
+            print(f"{label}: {display}")
+        if totals["average_per_test"] is not None:
+            print(f"Average per unique test: ${totals['average_per_test']:,.2f}")
         print()
 
         # Detailed output format

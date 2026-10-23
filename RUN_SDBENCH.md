@@ -29,6 +29,13 @@ uv run python -m sdbench.cli.harness --help
 
 Use `--case-id <id> [<id> ...]` or `--num-cases N` to select a subset, and `--max-workers N` to control parallelism.
 
+Resume accepts string case IDs. It skips a saved attempt only when the filename,
+stored case ID and repetition agree, and the record has a nonempty diagnosis and
+judge output with consistent score/correctness fields. New records also declare
+`result_status`. Older records without the required evidence are rerun; words such
+as “error” in a diagnosis do not indicate failure. A pricing failure alone does
+not invalidate a completed diagnosis. Use `recost` to retry its missing prices.
+
 ### Model providers & environment variables
 
 The stock harness routes calls through [`models.py`](sdbench/models.py). The Harbor adapter has a narrower, metered provider path; stock routing settings do not automatically apply to Harbor.
@@ -96,11 +103,22 @@ uv run --extra cpt_costing python -m sdbench.cli.recost <results-directory>
 
 This writes costs back to the case results and reports CPT-grounded matches versus LLM fallbacks. Review that coverage before comparing costs. LLM-only estimates and grounded estimates are different measurements.
 
-Two inherited limitations remain: the optional cache does not include all pricing
-inputs in its identity ([#7](https://github.com/Ali-Maq/sdbench/issues/7)), and a
-failed test-price lookup can leave a partial subtotal in raw results
-([#8](https://github.com/Ali-Maq/sdbench/issues/8)). Keep the cache disabled when
-changing pricing sources and inspect per-test errors before interpreting totals.
+Each estimate declares `complete`, `partial` or `unknown` pricing, with priced and
+unpriced test counts. Complete totals are `null` when coverage is incomplete;
+known subtotals remain separate. Reports recheck legacy results from per-test
+details and the declared expected count. A cohort with missing prices has no
+complete mean/total; complete-case subset statistics carry their own denominator.
+This measures one price per unique test name after lowercasing and trimming outer
+whitespace. Repeated requests are counted but are not repeated-procedure bills.
+
+The optional cache now includes effective model arguments/routing, pricing code,
+and, for grounded costing, charge-master content and embedding settings. Old keys
+miss automatically. Changed sources also invalidate in-memory matchers and disk
+indexes. Old index files are left in place. Keep sources and settings fixed during
+an in-flight request and pin deployments where possible: a remote model change
+behind an unchanged alias cannot be detected by a local fingerprint. Restart the
+process after code changes. Transient matcher/search failures are not cached as
+successful prices, and damaged local embedding/index files are rebuilt.
 
 ```bash
 # Recompute already priced cases.

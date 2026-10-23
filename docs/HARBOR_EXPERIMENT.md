@@ -178,7 +178,8 @@ uv run python -m sdbench.harbor_integration.reporting \
   --case <prepared-task-directory>/tests/private/case.json
 ```
 
-The exporter checks case/evidence identity and writes `artifacts/clinical-report/`
+The exporter checks case/evidence identity and requires the saved judge output
+with consistent score/correctness fields. It writes `artifacts/clinical-report/`
 once, refusing to overwrite it. Open `overview.html` in a browser; Harbor's file
 viewer shows HTML source. The report includes diagnostic, gatekeeper and judge
 conversations, reference and gatekeeper-reported flags. Flags are not verified

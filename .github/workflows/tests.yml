@@ -16,8 +16,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python }}
-      - name: Install retained runtime and tracing dependencies
-        run: uv sync --frozen --extra tracing --extra harbor
+      - name: Install runtime and optional integrations
+        run: uv sync --frozen --all-extras
       - name: Compile and test without model calls
         run: |
           uv run --no-sync python -m compileall -q sdbench
