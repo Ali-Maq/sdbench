@@ -161,7 +161,7 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
     )
     notice = (
         f"{label}; {mode}. One saved encounter, not a population accuracy estimate. "
-        f"{reference_note}Observation provenance distinguishes recorded case narrative from gatekeeper-synthesized details. "
+        f"{reference_note}Observation flags reproduce gatekeeper metadata; they do not verify that a result appears in the source record. "
         f"Models: diagnosis={verified['diagnosis_model']}, gatekeeper={verified['gatekeeper_model']}, "
         f"judge={verified['judge_model']}. Recorded API attempts (including failed/incomplete attempts): "
         f"diagnosis={counts['diagnosis']}, gatekeeper={counts['gatekeeper']}, judge={counts['judge']}. "

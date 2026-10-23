@@ -6,15 +6,54 @@ validity or equivalence to the unpublished original MAI-DxO implementation.
 
 | Check | Observed result |
 | --- | --- |
-| Python 3.12 unit/integration suite with Harbor, panel and tracing extras | 126 tests passed, no skips |
-| Released baseline through actual Docker + Harbor | 10/10 mock encounters completed, zero infrastructure exceptions; five paired cases |
+| Python 3.12 unit/integration suite with Harbor, panel and tracing extras | 131 tests passed, no skips |
+| Released baseline through actual Docker + Harbor | Earlier 10/10 mock encounters completed; fresh post-review run completed 2/2, zero infrastructure exceptions |
+| Baseline HTTP transport comparison | Three scripted tests matched stock requests, model inputs, public transcripts and final diagnoses |
+| Earlier baseline Azure smoke artifacts | Two completed fictional encounters; saved judge scores 4/5 and 5/5, under different development configurations |
 | Experimental LangGraph panel through actual Docker + Harbor | 2/2 mock encounters completed, zero infrastructure exceptions; one paired fictional case |
 | Experimental panel with live Azure GPT-5.4 | One fictional encounter completed; judge score **2/5**, reward **0** |
 | Langfuse SDK tests | Real SDK exported parent/child observations to an in-memory OpenTelemetry collector |
 | Local Langfuse server readback | Live encounter metadata appeared as one parent plus eight API-attempt observations |
 | Distribution | Wheel built; panel code, pinned container requirements, and tracing exporter are included |
 
-## Live encounter configuration and outcome
+## Review corrections and remaining limitations
+
+Public source was reviewed read-only with Claude Code, followed by a discussion
+of its findings. Reproducible findings were checked independently; review agreement
+is not test evidence. No patient files were supplied to that review.
+
+- Fixed report labels that treated `is_synthetic=False` as verified recorded
+  evidence. Regression tests cover the upstream parser's missing-tag and missing-result
+  fallbacks, plus missing/invalid saved flags. The upstream parser is unchanged.
+- Aligned the Harbor client's HTTP request timeout with the existing 1,800-second
+  encounter deadline; a gatekeeper request can legitimately include multiple
+  provider and formatting retries. Task/adapter tests check deadline consistency.
+- Added scripted stock-versus-HTTP baseline tests for request limits, forced final
+  diagnosis and malformed-response recovery. They do not establish live-model or
+  published-score equivalence.
+- Regenerated the saved fictional clinical report with corrected labels, preserving
+  its previous rendering and original evidence. No diagnosis was rerun for that edit.
+
+The new Docker smoke used the released baseline on one fictional case under two
+mock conditions, with three investigation turns and eight model calls per role
+allowed. Both completed; fixed mock score 3/5 and reward 0 are expected.
+
+Failed encounters remain inspectable through trusted raw-call/event artifacts,
+but cannot yet produce the completed clinical report. The paired route is direct
+OpenAI; Azure is supported by the separate smoke launcher. Custom episodes,
+recorded-only evidence retrieval, one-shot conditions and evaluator ensembles
+remain unimplemented.
+
+## Earlier live baseline artifacts
+
+Reinspection of the saved `azure-gpt54-smoke` and `azure-gpt54-phase-aware`
+artifacts confirmed completed live synthetic encounters, the released baseline's
+system prompt, and judge scores 4/5 and 5/5 respectively. These predate the panel
+run and used different development configurations. They are not independent
+patient samples or a controlled baseline-versus-panel comparison. No additional
+live call was made during this review.
+
+## Live panel encounter configuration and outcome
 
 The live smoke used bundled synthetic case `0`, the `experimental_panel` policy,
 and the same GPT-5.4 deployment for diagnosis, gatekeeper, and judge. The provider

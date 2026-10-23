@@ -2,6 +2,7 @@ import asyncio
 import json
 import hashlib
 import importlib.util
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,7 +12,7 @@ from types import SimpleNamespace
 
 import yaml
 
-from sdbench.harbor_integration.tasks import HARBOR_VERSION, build_task
+from sdbench.harbor_integration.tasks import AGENT_TIMEOUT_SECONDS, HARBOR_VERSION, build_task
 
 
 def _case():
@@ -150,6 +151,7 @@ class HarborTaskTests(unittest.TestCase):
         model = harbor.TaskConfig.model_validate(tomllib.loads((task / "task.toml").read_text()))
         assert model.verifier.environment_mode.value == "separate"
         assert model.artifacts[1].service == "gatekeeper"
+        assert model.agent.timeout_sec == AGENT_TIMEOUT_SECONDS
 
 
     @unittest.skipUnless(importlib.util.find_spec("harbor"), "Optional Harbor is not installed")
@@ -174,6 +176,12 @@ class HarborTaskTests(unittest.TestCase):
         assert len(environment.calls) == 2
         assert "python -m sdbench.isolation.diagnosis" in environment.calls[-1]["command"]
         assert "--token-file /run/diagnosis-token" in environment.calls[-1]["command"]
+        command = shlex.split(environment.calls[-1]["command"])
+        client_timeout = float(command[command.index("--timeout") + 1])
+        task = build_task(self.case, {}, tmp_path / "task")
+        task_config = tomllib.loads((task / "task.toml").read_text())
+        self.assertEqual(client_timeout, task_config["agent"]["timeout_sec"])
+        self.assertEqual(client_timeout, AGENT_TIMEOUT_SECONDS)
         assert "PRIVATE" not in environment.calls[-1]["command"]
         assert context.is_empty()  # Required for Harbor's post-run conversion hook.
         agent.populate_context_post_run(context)

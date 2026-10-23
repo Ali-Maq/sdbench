@@ -38,7 +38,7 @@ uv sync
 ```
 
 Provide model-provider credentials via a `.env` file (loaded automatically). See the
-"Model providers & environment variables" table in `README.md`.
+"Model providers & environment variables" table in `docs/STOCK_HARNESS.md`.
 
 ## Common commands
 

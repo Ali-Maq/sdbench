@@ -2,6 +2,8 @@
 
 Start with the [repository README](../README.md), then choose a guide:
 
+- [Study plan](STUDY_PROTOCOL.md): episode definitions, three comparisons, reference evidence and scoring limits.
+- [Stock harness](STOCK_HARNESS.md): original runner, provider configuration and clinical costing.
 - [Harbor experiments](HARBOR_EXPERIMENT.md): role boundaries, commands, paired comparisons, reports, and limits.
 - [Agent extensions](AGENT_EXTENSIONS.md): the optional LangGraph panel, provenance, and tracing.
 - [Verification record](VERIFICATION.md): observed test results, live outcome, and remaining research work.

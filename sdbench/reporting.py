@@ -883,6 +883,9 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
     html_content += f"""
     <div class="summary">
         <h2>Case Results</h2>
+        <p>Gatekeeper flags are reported metadata, not verified source evidence.
+        The upstream parser may default a missing flag to non-synthetic;
+        that label does not establish that a finding was documented.</p>
         <div class="table-container">
             <table class="results-table">
                 <thead>
@@ -900,7 +903,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
                         <th>Model Diagnosis</th>
                         <th>Actual Diagnosis</th>
                         <th>Grader Score</th>
-                        <th>Information requests (source)</th>
+                        <th>Information requests (gatekeeper flag)</th>
                         <th>Cost</th>
                         <th>Actions</th>
                     </tr>
@@ -924,9 +927,10 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
         # Get new simple test logs
         test_logs = result.get("test_logs", [])
 
-        # Count synthetic vs non-synthetic tests
-        synthetic_count = sum(1 for log in test_logs if log.get("is_synthetic", False))
-        real_count = len(test_logs) - synthetic_count
+        # Display the saved flags without treating them as verified provenance.
+        synthetic_count = sum(1 for log in test_logs if log.get("is_synthetic") is True)
+        non_synthetic_count = sum(1 for log in test_logs if log.get("is_synthetic") is False)
+        unknown_count = len(test_logs) - synthetic_count - non_synthetic_count
 
         # Get test and cost information for ALL methods
         requested_tests = result.get("requested_tests", [])
@@ -1039,7 +1043,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
                         <td class="diagnosis-cell">{html.escape(model_diagnosis)}</td>
                         <td class="diagnosis-cell">{html.escape(actual_diagnosis)}</td>
                         <td class="score-cell">{grader_score}</td>
-                        <td class="tests-cell">{num_tests} (Gatekeeper-synthesized: {synthetic_count}, Case-recorded: {real_count})</td>
+                        <td class="tests-cell">{num_tests} (Gatekeeper flag: synthetic: {synthetic_count}, non-synthetic: {non_synthetic_count}, unknown: {unknown_count})</td>
                         <td class="cost-cell">{cost_display}</td>
                         <td class="actions-cell">
                             <button class="action-btn agent-btn collapsible" data-original-text="Agent Dialog">Agent Dialog</button>
@@ -1340,11 +1344,12 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
             for _, test_log in enumerate(test_logs):
                 test_name = test_log.get("test_name", "Unknown Test")
                 reason = test_log.get("reason", "No reason provided")
-                is_synthetic = test_log.get("is_synthetic", False)
+                is_synthetic = test_log.get("is_synthetic")
                 timestamp = test_log.get("timestamp", "Unknown")
                 messages = test_log.get("messages", [])
                 
-                synthetic_badge = " — Gatekeeper-synthesized" if is_synthetic else " — Recorded in case narrative"
+                flag_label = "synthetic" if is_synthetic is True else "non-synthetic" if is_synthetic is False else "unknown"
+                synthetic_badge = f" — Gatekeeper flag: {flag_label}"
                 
                 # Display test header
                 html_content += f"""

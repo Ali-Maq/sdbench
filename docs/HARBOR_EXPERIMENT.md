@@ -1,21 +1,11 @@
-# Harbor architecture and gatekeeper experiments
+# Harbor architecture and commands
 
-This adapter makes a SDBench encounter runnable and inspectable in Harbor. Its
-paired experiment asks: **if the diagnostic policy and judge stay fixed, does
-changing only the gatekeeper from `o4-mini` to `gpt-5` change the outcome?**
+The adapter runs the released SDBench baseline behind a case-access boundary.
+Its implemented paired experiment changes only the gatekeeper model. See the
+[study plan](STUDY_PROTOCOL.md) for the proposed longitudinal cohort and other
+comparisons, and [verification](VERIFICATION.md) for completed runs.
 
-The default diagnostic policy is the released SDBench baseline. An optional,
-explicitly experimental panel is described in [agent extensions](AGENT_EXTENSIONS.md).
-Neither is the unavailable original Microsoft MAI-DxO implementation. The
-[source audit](mai_dxo_source_audit.json) records the official repository,
-archive, and paper materials that were inspected.
-
-The initial implementation runs with **three role containers on a shared
-kernel**, not three independent VMs. The paired examples use deterministic
-mock responses; the separate Azure smoke command explicitly uses live calls.
-Mock scores test execution and accounting, not clinical ability.
-
-## Architecture: what runs where
+## Architecture
 
 There are two execution stages. First, Harbor starts a diagnosis container and
 a gatekeeper sidecar in one Docker environment. After the diagnostic agent stops,
@@ -69,120 +59,39 @@ is finalized at the sidecar before the verifier accepts it.
 | Record individual API attempts and distinguish usage from prices | [`providers.py`](../sdbench/isolation/providers.py), [`accounting.py`](../sdbench/isolation/accounting.py) |
 | Export the public trajectory and evaluator's clinical report | [`trajectory.py`](../sdbench/harbor_integration/trajectory.py), [`reporting.py`](../sdbench/harbor_integration/reporting.py) |
 
-## What is working, and what is still missing
+## Role boundaries and evidence
 
-The live Azure run is an **infrastructure demonstration with a fictional patient**.
-Its diagnosis, gatekeeper responses, and judge assessment are genuine model
-outputs, but a successful synthetic case is not a clinical benchmark result.
-The reference diagnosis is authored as part of that fictional case.
+Each task's `main` container contains source code, a session credential, and the
+diagnosis client. It has no full case, reference diagnosis, clinical prompt YAML,
+or provider key. The initial presentation comes from `GET /session`.
 
-The three components have different purposes:
+The gatekeeper sidecar owns `BatchTestRunner` and the private case. Its authenticated
+API accepts only `/tests`, `/model` and `/diagnosis`, plus the read-only session.
+The diagnostic credential cannot choose another case, model, provider, or role.
+The service also hosts the trusted diagnostic-model metering endpoint; the
+gatekeeper LLM has no server administration or filesystem tools.
 
-- **SDBench** supplies cases, the information gatekeeper, diagnostic scoring,
-  medical-workup costing, and a baseline diagnostic agent.
-- **MAI-DxO** is the diagnostic strategy described in the paper: one model plays
-  Dr. Hypothesis, Dr. Test-Chooser, Dr. Challenger, Dr. Stewardship, and
-  Dr. Checklist. Those roles belong inside the diagnostic policy. They do not
-  require separate MCP servers or five additional sandboxes. The inspected
-  upstream release contains the baseline, not an executable MAI-DxO implementation.
-- **Harbor** supplies the execution lifecycle, environments, separate verifier,
-  artifacts, scheduling, and common agent/trajectory interfaces. SDBench already
-  has its own parallel, resumable harness; parallelism alone is not the reason
-  to add Harbor.
+The diagnosis and gatekeeper communicate on an internal Docker network. Only
+the gatekeeper gets an additional outbound network in live mode. The mock judge
+uses Docker's native `network_mode: none`; this works on Docker Desktop even
+where Harbor's optional network-policy capability check rejects `no-network`.
 
-The community-facing objective is a reusable clinical task interface for Harbor
-agents, coupled with a controlled study of how the gatekeeper affects measured
-accuracy and information disclosure. The present adapter is an initial part of
-that objective, not its completion:
+After diagnosis ends, Harbor collects the **sidecar-owned** `/private/evidence`
+directory. A separate verifier image receives it at the same absolute path.
+The judge checks trial, case, configuration, event order, turn consumption, and
+original-versus-accepted requests before making a judging call. Hashes detect
+inconsistency; they are not authentication for arbitrary agent-authored files.
+Trust comes from the sidecar source and Harbor's collection boundary.
 
-| Capability | Current state |
-| --- | --- |
-| Existing baseline, gatekeeper, and judge in three role containers | Implemented; shared host kernel |
-| Genuine Azure calls and per-attempt usage records | Verified on bundled synthetic cases |
-| Native diagnostic trajectory | Implemented; baseline and experimental panel XML actions are exported to ATIF |
-| Original MAI-DxO specialist panel | Not available in the inspected release; the optional experimental panel is a separate implementation |
-| Native Codex / Claude Code clinical tools | Not wired into these tasks |
-| Real NEJM / MIMIC evaluation | Requires authorized dataset access and applicable provider data handling |
-| Clinical-workup costing | Existing SDBench modules available; not run by this adapter |
-| Actual API dollar costs | Unknown until applicable rates/billing are supplied and reconciled |
-| Live paired o4-mini versus GPT-5 results | Not run; the Azure smoke uses GPT-5.4 for all roles |
+The analysis accepts results only from verifier directories and API ledgers only
+from the designated sidecar artifact or verifier locations. Agent artifacts with
+similar filenames are ignored. Conflicting copies of a call ID are rejected.
 
-Harbor 0.24's native Codex and Claude Code integrations support MCP. Reusing them
-requires exposing the existing clinical operations through MCP (or an explicit
-CLI tool) and configuring the native agent's provider connection. Our bespoke
-`/model` completion endpoint is not a Responses-compatible Codex gateway, and
-an Azure GPT deployment is not a Claude Code backend. The default custom agent
-launches the released SDBench baseline. The optional experimental policy remains inside the same diagnostic role; see
-[agent extensions](AGENT_EXTENSIONS.md).
-
-Container separation prevents direct access to the reference files; it does not
-prove that a gatekeeper never reveals diagnostic hints in its text. A leakage
-study must separately audit requested versus disclosed information, unsupported
-findings, premature diagnostic disclosure, and adversarial requests. Legitimate
-confirmatory test results must not be classified as leakage merely because they
-identify the disease.
-
-## Real-case access and evaluation scope
-
-The repository ships five fully synthetic development cases. It does not ship
-unrestricted real SDBench cases. The current study reports 304 NEJM cases; their
-dataset requires a separate [NEJM license](../data/processed_case_data/nejm/README.md).
-The [MIMIC-IV-Ext-SDBench release](https://physionet.org/content/mimic-iv-ext-sdbench/1.0.0/)
-contains 488 real patients: 163 training, 254 validation, and 71 clinician-reviewed
-test cases. The published evaluation uses the latter 325, not all 488.
-
-PhysioNet requires credentialing, the specified training, and the project data
-use agreement. Its [LLM-use guidance](https://physionet.org/news/post/llm-responsible-use/)
-also requires verification of the provider's data handling before sending records
-to a cloud API. Azure authentication and `store=False` do not by themselves
-establish those conditions. Downloaded records, generated task images, and full
-audit reports must remain within the permitted research environment.
-
-Use training cases to debug the integration. Freeze the diagnostic policy,
-judge, prompts, case set, provider routing, retry policy, and limits before a
-paired gatekeeper comparison. Report NEJM and MIMIC separately before any
-explicitly defined pooled result. Report paired differences across repeated
-encounters, failures, disclosure audits, estimated clinical-workup costs, and
-all-role API usage as distinct outcomes. A single successful encounter is an
-integration check, not evidence of diagnostic superiority.
-
-## Viewing results and reports
-
-- **Pareto** defaults to API cost versus reward. A trial with unknown `cost_usd`
-  has no point on that axis. Tokens or time can be selected instead. This is not
-  the paper's clinical-workup cost plot.
-- **Outcomes** represents each trial as a small square. One completed case
-  produces one square, not a clinical encounter report.
-- **Trajectory** shows the diagnostic agent's messages and actions. A text-only
-  encounter has no screen video: no browser or computer-use episode was recorded.
-  Neither hidden model reasoning nor unimplemented MAI-DxO role debates can be
-  reconstructed from this trace.
-- **Verifier / Artifacts** retain privileged audit evidence. The native file
-  viewer has a 1 MiB text limit; a large raw-call ledger can fail to open despite
-  existing on disk. Do not interpret that display failure as a missing run.
-
-The existing SDBench HTML renderer is the clinical report interface to reuse:
-it already shows diagnostic, gatekeeper, and grader conversations, the reference
-diagnosis, and test provenance. Reports containing privileged case evidence
-belong on the evaluator side and must never be mounted into the diagnostic agent.
-
-After a trial finishes, export its saved evidence without making new model calls:
-
-```bash
-uv run --python 3.11 python -m sdbench.harbor_integration.reporting \
-  --trial-dir <completed-harbor-trial-directory> \
-  --case <prepared-task-directory>/tests/private/case.json
-```
-
-This verifies the case and evidence hashes and writes
-`artifacts/clinical-report/overview.html`, mapped results, and an audit manifest.
-The export preserves the original ledgers and creates per-call copies small
-enough for Harbor's file viewer. Open the HTML in a browser to use the existing
-Agent Dialog, Grader Dialog, Gatekeeper Dialog, and Test Runner Log controls;
-Harbor's file browser displays HTML source rather than rendering the page.
-The notice distinguishes fictional cases, incomplete attempts, unknown API
-dollars, and clinical costs that have not been computed. The summary percentage
-describes only the saved encounter(s), not population performance.
+Runtime source inventories, dependency pins, Dockerfile hashes, and the pinned
+Python image are recorded in each task's `isolation.json`. Generated tasks, images,
+and logs contain private case data and temporary credentials. Keep them local;
+do not upload them to GitHub, a public registry, or Harbor Hub. Default paths are
+under ignored `results/`.
 
 ## Existing framework contracts come first
 
@@ -221,6 +130,17 @@ protected evidence, fixed condition assignment, pairing by case/repetition, and
 accounting for missing/failed attempts. Harbor's ordinary mean-reward metric does
 not carry case identities needed for a paired case-level bootstrap.
 
+### Runtime limits
+
+Generated tasks allow 30 minutes for the diagnostic episode and 10 minutes for
+the verifier. The HTTP client's per-request timeout matches the diagnostic episode
+limit: one gatekeeper request can contain several chunks and formatting/provider
+retries. Individual live provider attempts have a 120-second timeout. Harbor
+controls total episode wall time. These limits can affect slower models; report
+timeouts by arm and do not interpret infrastructure failures as clinical errors
+without also reporting completed-only results. The primary scheduled denominator
+still retains failures.
+
 ### Deliberate deviations from the original harness
 
 - The adapter refuses ambiguous judge output instead of accepting the original
@@ -244,44 +164,72 @@ not carry case identities needed for a paired case-level bootstrap.
 
 ## Run the mock experiment
 
-Docker must be running. From the repository root:
+Use the [README quickstart](../README.md#try-harbor-without-model-api-calls).
+Preparation makes no model calls and refuses to overwrite a destination. The
+mock judge deliberately returns 3/5 and reward 0. These are transport checks.
+Each explicit repetition has a paired identity and the generated Harbor job sets
+`n_attempts=1`; do not add Harbor attempts on top of `--repetitions`. Use Harbor's
+job recovery with the original generated tasks.
 
-```bash
-uv sync --python 3.12 --extra harbor
-uv run --extra harbor python -m unittest discover -s tests -v
+## Paired experiment design
 
-uv run --extra harbor python -m sdbench.cli.isolation prepare \
-  --dataset synthetic --case-set train \
-  --max-turns 5 --max-model-calls 12 \
-  --api-mode mock --output results/harbor-smoke
+For each case and repetition, preparation creates two trials under one protocol
+hash. The schedule is shuffled reproducibly. Pair identity is retained even
+when execution fails, so failed trials cannot silently disappear from analysis.
 
-uv run --extra harbor harbor run --config results/harbor-smoke/job.json
+| Setting | Arm A | Arm B |
+| --- | --- | --- |
+| Case, initial presentation, and repetition | Same | Same |
+| Diagnostic policy/model and judge model | Fixed | Same |
+| Gatekeeper model | `o4-mini` | `gpt-5` |
+| Gatekeeper and judge prompts | Fixed per dataset | Same |
+| Provider route, model arguments, turn/call limits | Fixed | Same |
 
-uv run --extra harbor python -m sdbench.cli.isolation summarize \
-  --manifest results/harbor-smoke/manifest.json \
-  --jobs results/harbor-smoke/jobs \
-  --output results/harbor-smoke/summary.json
-```
+The current paired configuration pins these upstream prompt versions:
 
-Five bundled synthetic cases × two gatekeeper conditions × one repetition gives
-ten encounters. Both conditions use fake responses in mock mode. The fake judge
-returns score 3 deliberately, so a healthy smoke run has **ten completed
-encounters, no infrastructure failures, and zero clinical rewards**.
+| Dataset | Gatekeeper prompt | Judge prompt |
+| --- | --- | --- |
+| NEJM | `v6_fixed` | `v3_reasoning` |
+| MIMIC | `v13_mimic` | `v4_reasoning_with_tests` |
+| Synthetic smoke | `v6_fixed` | `v3_reasoning` |
 
-Preparation makes no API calls and refuses to overwrite an existing destination.
-Use a new output directory for a new preparation. Each repetition gets an explicit
-paired identity, so the generated Harbor job sets `n_attempts=1`; do not add Harbor
-attempts on top of `--repetitions` without updating the pairing protocol. Use
-Harbor's own job recovery/diff mechanisms with the original generated tasks.
+The paired CLI currently accepts only those three datasets. A custom longitudinal
+cohort needs explicit case preparation and protocol support; naming a new folder
+does not make it an accepted paired experiment. Keep development cases separate
+from a held-out evaluation set.
 
-The core suite can also run without Harbor:
+### Live execution and interpretation
 
-```bash
-uv run --python 3.11 python -m unittest discover -s tests -v
-uv run --python 3.11 python -m compileall -q sdbench
-```
+Prepare with `--api-mode live` only when the model choice, case access, and spending
+plan are settled. The paired direct-OpenAI worker requires an exported `OPENAI_API_KEY`; do not put
+keys in manifests, prompts, images, or chat. Only gatekeeper and judge receive the
+provider credential. Both arms retain the same diagnostic and judge models,
+prompts, API route, limits, and model arguments. Only the gatekeeper model differs.
 
-The two Harbor-specific schema/adapter checks are skipped if Harbor is absent.
+The default shared `max_completion_tokens` is 4096. It is configurable and stored
+in the manifest. Validate model availability and common supported settings before
+the full run. Mock smoke tests do not verify paid API availability or clinical
+correctness. A successful live smoke run verifies that particular configured
+deployment and transport; it does not establish clinical correctness in general.
+
+The optional `--rate-cards PATH` accepts a JSON object keyed by exact model name.
+Each entry has `effective_date` (YYYY-MM-DD), `input_per_million`,
+`output_per_million`, optional `cached_input_per_million`, and optional `source`.
+No prices are guessed. Reported cached-input and reasoning tokens are subsets,
+not extra tokens added again. Failed calls without usage retain unknown cost.
+Token-rate estimates are not invoice-confirmed charges; `actual_paid_usd` remains
+null until a separate provider-billing reconciliation is implemented.
+
+Results retain failed and missing scheduled episodes in the primary denominator,
+also show completed-only accuracy, and calculate paired differences at the case
+level. NEJM and MIMIC are reported separately. Missing audit labels remain unknown;
+the software does not invent a semantic leakage score.
+
+The comparison measures the gatekeeper's effect on the whole interactive
+workflow: changed observations can change subsequent requests. Fixed-request
+replay would be a separate experiment. Semantic disclosure is not inferred from
+container isolation or the gatekeeper's synthetic flags; missing audit labels
+remain unknown.
 
 ## Live Azure smoke test
 
@@ -346,114 +294,59 @@ deployment's current model version and upgrade policy: a named deployment can
 auto-upgrade even when its current version has a dated identifier. The paired `summarize` command intentionally
 rejects this single-model smoke manifest.
 
-## Role boundaries and evidence
+## Viewing results and reports
 
-Each task's `main` container contains source code, a session credential, and the
-diagnosis client. It has no full case, reference diagnosis, clinical prompt YAML,
-or provider key. The initial presentation comes from `GET /session`.
+- **Pareto** defaults to API cost versus reward. A trial with unknown `cost_usd`
+  has no point on that axis. Tokens or time can be selected instead. This is not
+  the paper's clinical-workup cost plot.
+- **Outcomes** represents each trial as a small square. One completed case
+  produces one square, not a clinical encounter report.
+- **Trajectory** shows the diagnostic agent's messages and actions. A text-only
+  encounter has no screen video: no browser or computer-use episode was recorded.
+  Neither hidden model reasoning nor unimplemented MAI-DxO role debates can be
+  reconstructed from this trace.
+- **Verifier / Artifacts** retain privileged audit evidence. The native file
+  viewer has a 1 MiB text limit; a large raw-call ledger can fail to open despite
+  existing on disk. Do not interpret that display failure as a missing run.
 
-The gatekeeper sidecar owns `BatchTestRunner` and the private case. Its authenticated
-API accepts only `/tests`, `/model` and `/diagnosis`, plus the read-only session.
-The diagnostic credential cannot choose another case, model, provider, or role.
-The service also hosts the trusted diagnostic-model metering endpoint; the
-gatekeeper LLM has no server administration or filesystem tools.
+The existing SDBench HTML renderer is the clinical report interface to reuse:
+it already shows diagnostic, gatekeeper, and grader conversations, the reference
+diagnosis, and gatekeeper-reported observation flags. These flags do not independently verify source provenance. Reports containing privileged case evidence
+belong on the evaluator side and must never be mounted into the diagnostic agent.
 
-The diagnosis and gatekeeper communicate on an internal Docker network. Only
-the gatekeeper gets an additional outbound network in live mode. The mock judge
-uses Docker's native `network_mode: none`; this works on Docker Desktop even
-where Harbor's optional network-policy capability check rejects `no-network`.
+After a trial finishes, export its saved evidence without making new model calls:
 
-After diagnosis ends, Harbor collects the **sidecar-owned** `/private/evidence`
-directory. A separate verifier image receives it at the same absolute path.
-The judge checks trial, case, configuration, event order, turn consumption, and
-original-versus-accepted requests before making a judging call. Hashes detect
-inconsistency; they are not authentication for arbitrary agent-authored files.
-Trust comes from the sidecar source and Harbor's collection boundary.
+```bash
+uv run --python 3.11 python -m sdbench.harbor_integration.reporting \
+  --trial-dir <completed-harbor-trial-directory> \
+  --case <prepared-task-directory>/tests/private/case.json
+```
 
-The analysis accepts results only from verifier directories and API ledgers only
-from the designated sidecar artifact or verifier locations. Agent artifacts with
-similar filenames are ignored. Conflicting copies of a call ID are rejected.
+This verifies the case and evidence hashes and writes
+`artifacts/clinical-report/overview.html`, mapped results, and an audit manifest.
+The export preserves the original ledgers and creates per-call copies small
+enough for Harbor's file viewer. Open the HTML in a browser to use the existing
+Agent Dialog, Grader Dialog, Gatekeeper Dialog, and Test Runner Log controls;
+Harbor's file browser displays HTML source rather than rendering the page.
+The notice distinguishes fictional cases, incomplete attempts, unknown API
+dollars, and clinical costs that have not been computed. The summary percentage
+describes only the saved encounter(s), not population performance.
 
-Runtime source inventories, dependency pins, Dockerfile hashes, and the pinned
-Python image are recorded in each task's `isolation.json`. Generated tasks, images,
-and logs contain private case data and temporary credentials. Keep them local;
-do not upload them to GitHub, a public registry, or Harbor Hub. Default paths are
-under ignored `results/`.
+### Inspecting a failed encounter
 
-## Paired experiment design
+The completed clinical report intentionally requires a submitted diagnosis and
+valid judge result. A failed encounter may have neither; do not fill them with
+default answers. The partial public conversation is not currently retained in
+`agent/diagnosis.json`, which records sanitized status and error type on failure.
+Inspect the protected artifacts instead:
 
-For each case and repetition, preparation creates two trials under one protocol
-hash. The schedule is shuffled reproducibly. Pair identity is retained even
-when execution fails, so failed trials cannot silently disappear from analysis.
+- `artifacts/gatekeeper-evidence/events.jsonl`: completed requests/observations and
+  any terminal event.
+- `artifacts/gatekeeper-evidence/raw_calls.jsonl`: recorded diagnostic and gatekeeper
+  attempts, including available prompts, responses and failures.
+- `verifier/result.json` and `verifier/raw_calls.jsonl`, if produced: grading status
+  and judge attempts.
+- The trial's `result.json`: Harbor execution and exception status.
 
-| Setting | Arm A | Arm B |
-| --- | --- | --- |
-| Case, initial presentation, and repetition | Same | Same |
-| Diagnostic policy/model and judge model | Fixed | Same |
-| Gatekeeper model | `o4-mini` | `gpt-5` |
-| Gatekeeper and judge prompts | Fixed per dataset | Same |
-| Provider route, model arguments, turn/call limits | Fixed | Same |
-
-The current paired configuration pins these upstream prompt versions:
-
-| Dataset | Gatekeeper prompt | Judge prompt |
-| --- | --- | --- |
-| NEJM | `v6_fixed` | `v3_reasoning` |
-| MIMIC | `v13_mimic` | `v4_reasoning_with_tests` |
-| Synthetic smoke | `v6_fixed` | `v3_reasoning` |
-
-The paired CLI currently accepts only those three datasets. A custom longitudinal
-cohort needs explicit case preparation and protocol support; naming a new folder
-does not make it an accepted paired experiment. Keep development cases separate
-from a held-out evaluation set.
-
-### Live execution and interpretation
-
-Prepare with `--api-mode live` only when the model choice, case access, and spending
-plan are settled. The paired direct-OpenAI worker requires an exported `OPENAI_API_KEY`; do not put
-keys in manifests, prompts, images, or chat. Only gatekeeper and judge receive the
-provider credential. Both arms retain the same diagnostic and judge models,
-prompts, API route, limits, and model arguments. Only the gatekeeper model differs.
-
-The default shared `max_completion_tokens` is 4096. It is configurable and stored
-in the manifest. Validate model availability and common supported settings before
-the full run. Mock smoke tests do not verify paid API availability or clinical
-correctness. A successful live smoke run verifies that particular configured
-deployment and transport; it does not establish clinical correctness in general.
-
-The optional `--rate-cards PATH` accepts a JSON object keyed by exact model name.
-Each entry has `effective_date` (YYYY-MM-DD), `input_per_million`,
-`output_per_million`, optional `cached_input_per_million`, and optional `source`.
-No prices are guessed. Reported cached-input and reasoning tokens are subsets,
-not extra tokens added again. Failed calls without usage retain unknown cost.
-Token-rate estimates are not invoice-confirmed charges; `actual_paid_usd` remains
-null until a separate provider-billing reconciliation is implemented.
-
-Results retain failed and missing scheduled episodes in the primary denominator,
-also show completed-only accuracy, and calculate paired differences at the case
-level. NEJM and MIMIC are reported separately. Missing audit labels remain unknown;
-the software does not invent a semantic leakage score.
-
-## Interpretation and remaining scope
-
-The comparison estimates the effect of the gatekeeper on this **whole diagnostic
-workflow**. The diagnostic agent may ask different follow-up questions after a
-different observation. Fixed-request replay is a separate test of gatekeeper
-responses to identical requests; it is not implemented by the paired runner.
-
-A container boundary checks file and credential access. It cannot demonstrate
-that a model's reply contains no premature answer, unsupported claim, or prompt
-injection. Those require explicit audit labels and a defined rubric. Missing
-labels are unknown, not a measured zero-leakage rate.
-
-Remaining work includes:
-
-- Blinded clinical disclosure/observation-quality review and fixed-request replay.
-- Provider billing reconciliation and a reviewed live spending limit.
-- Clinically sourced held-out cases with the required dataset access.
-- Independent VM/microVM boundaries if untrusted executable agents require them.
-- Original MAI-DxO integration if its implementation and matching configuration
-  become available; the optional paper-inspired panel must be reported separately.
-
-This adapter is a foundation for those experiments, not evidence that one
-gatekeeper is clinically better or that all information leakage has been removed.
+A polished failed-encounter report remains unimplemented. Missing records must be
+reported as missing; the raw logs are evidence, not a reconstructed success.

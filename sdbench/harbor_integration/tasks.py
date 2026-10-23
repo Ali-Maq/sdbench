@@ -24,6 +24,7 @@ import yaml
 
 
 HARBOR_VERSION = "0.24.0"
+AGENT_TIMEOUT_SECONDS = 1800
 ISOLATION = "docker-containers-shared-kernel"
 _PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 _PROVIDER_ENV = ("OPENAI_API_KEY",)
@@ -139,7 +140,7 @@ isolation = "{ISOLATION}"
 harbor_version = "{HARBOR_VERSION}"
 
 [agent]
-timeout_sec = 1800.0
+timeout_sec = {AGENT_TIMEOUT_SECONDS:.1f}
 
 [environment]
 build_timeout_sec = 900.0

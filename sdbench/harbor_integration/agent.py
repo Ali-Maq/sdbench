@@ -16,6 +16,7 @@ from harbor.models.agent.context import AgentContext
 from harbor.models.trajectories import Trajectory
 from harbor.utils.trajectory_utils import format_trajectory_json
 
+from sdbench.harbor_integration.tasks import AGENT_TIMEOUT_SECONDS
 from sdbench.harbor_integration.trajectory import public_diagnosis_trajectory
 
 
@@ -45,12 +46,15 @@ class SDBenchAgent(BaseInstalledAgent):
         # not a host-side model object or arbitrary agent-kwarg shell command.
         # Harbor syncs this public log directory before populate_context_post_run.
         # Preserve a failed client's exit status while retaining its failure log.
+        # One request may contain several gatekeeper chunks and retries. Let it
+        # wait up to the episode deadline; Harbor enforces the total wall time.
         public_log = shlex.quote(str(self.environment_logs_dir / "diagnosis.json"))
         await self.exec_as_agent(
             environment,
             "status=0; python -m sdbench.isolation.diagnosis "
             "--url http://gatekeeper:8080 "
             "--token-file /run/diagnosis-token "
+            f"--timeout {AGENT_TIMEOUT_SECONDS} "
             "--output /logs/artifacts/diagnosis.json || status=$?; "
             "if [ -f /logs/artifacts/diagnosis.json ]; then "
             f"cp /logs/artifacts/diagnosis.json {public_log} || exit 1; fi; "

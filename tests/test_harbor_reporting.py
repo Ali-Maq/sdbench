@@ -85,7 +85,10 @@ class IsolatedReportTests(unittest.TestCase):
         self.assertNotIn("$0", html)
         self.assertNotIn("Synthetic/Real", html)
         self.assertIn("authored fictional case", html)
-        self.assertIn("Gatekeeper-synthesized: 1, Case-recorded: 0", html)
+        self.assertIn("Gatekeeper flag: synthetic: 1, non-synthetic: 0, unknown: 0", html)
+        self.assertIn("reported metadata, not verified source evidence", html)
+        self.assertIn("Observation flags reproduce gatekeeper metadata; they do not verify", html)
+        self.assertNotIn("Observation provenance distinguishes recorded", html)
         mapped = json.loads((report.parent / "result.json").read_text())
         self.assertEqual(mapped["export_metadata"]["api_attempts_by_role"],
                          {"diagnosis": 1, "gatekeeper": 2, "judge": 1})
@@ -96,6 +99,42 @@ class IsolatedReportTests(unittest.TestCase):
         self.assertFalse((self.trial / "agent/clinical-report").exists())
         with self.assertRaisesRegex(ValueError, "already exists"):
             export_trial_report(self.trial, self.case_path)
+
+    def test_parser_defaults_are_not_presented_as_documented_patient_evidence(self):
+        from sdbench.gatekeeper import _parse_xml_test_response
+
+        names = ["Test to order: observation A", "Test to order: observation B"]
+        observations, successful = _parse_xml_test_response(
+            names, '<test_result id="1"><result>Unverified fixture observation</result></test_result>', False
+        )
+        # Exercise both upstream fallbacks: a missing flag and a missing result.
+        self.assertEqual(successful, 1)
+        self.assertEqual([item["is_synthetic"] for item in observations], [False, False])
+        self.verifier["test_logs"] = [
+            {"test_name": item["test_name"], "result": item["results"], "is_synthetic": item["is_synthetic"]}
+            for item in observations
+        ]
+        self.write("verifier/result.json", self.verifier)
+        report = export_trial_report(self.trial, self.case_path)
+        html = report.read_text()
+        self.assertIn("Gatekeeper flag: synthetic: 0, non-synthetic: 2, unknown: 0", html)
+        self.assertIn("Gatekeeper flag: non-synthetic", html)
+        self.assertIn("does not establish that a finding was documented", html)
+        self.assertNotIn("Case-recorded", html)
+        self.assertNotIn("Recorded in case narrative", html)
+        mapped = json.loads((report.parent / "result.json").read_text())
+        self.assertEqual([item["is_synthetic"] for item in mapped["test_logs"]], [False, False])
+
+    def test_missing_or_invalid_saved_flags_remain_unknown_in_the_report(self):
+        self.verifier["test_logs"] = [
+            {"test_name": "Missing flag", "result": "Fixture"},
+            {"test_name": "Null flag", "result": "Fixture", "is_synthetic": None},
+            {"test_name": "String flag", "result": "Fixture", "is_synthetic": "false"},
+        ]
+        self.write("verifier/result.json", self.verifier)
+        html = export_trial_report(self.trial, self.case_path).read_text()
+        self.assertIn("Gatekeeper flag: synthetic: 0, non-synthetic: 0, unknown: 3", html)
+        self.assertEqual(html.count("— Gatekeeper flag: unknown"), 3)
 
     def test_oversized_call_is_losslessly_split_into_viewer_sized_utf8_files(self):
         self.calls[1]["messages"][0]["content"] = "Multibyte 🧪" * 100_000
