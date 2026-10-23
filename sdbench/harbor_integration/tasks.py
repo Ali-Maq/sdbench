@@ -27,6 +27,18 @@ HARBOR_VERSION = "0.24.0"
 ISOLATION = "docker-containers-shared-kernel"
 _PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 _PROVIDER_ENV = ("OPENAI_API_KEY",)
+
+
+def _azure_runtime() -> dict[str, Any]:
+    """Compose binds a host-managed credential directory only into trusted roles."""
+    return {
+        "environment": {"SDBENCH_AZURE_TOKEN_FILE": "/run/sdbench-azure/token.json"},
+        "volumes": [{
+            "type": "bind", "source": "${SDBENCH_AZURE_TOKEN_DIR:?Use the Azure Harbor launcher}",
+            "target": "/run/sdbench-azure", "read_only": True,
+            "bind": {"create_host_path": False},
+        }],
+    }
 # Python 3.11/Linux dependency closure from this repository's uv.lock. Keep this
 # snapshot in sync when intentionally updating the role runtime. Do not resolve
 # fresh versions during an experiment build.
@@ -141,7 +153,7 @@ timeout_sec = 600.0
 cpus = 1
 memory_mb = 1024
 '''
-    if config["api_mode"] == "live":
+    if config["api_mode"] == "live" and config.get("provider", "openai") != "azure":
         result += "\n[verifier.env]\n"
         result += "".join(f'{name} = "${{{name}:-}}"\n' for name in _PROVIDER_ENV)
     return result
@@ -202,6 +214,10 @@ def build_task(
             (judge / "docker-compose.yaml").write_text(
                 yaml.safe_dump({"services": {"main": {"network_mode": "none"}}})
             )
+        elif config.get("provider") == "azure":
+            (judge / "docker-compose.yaml").write_text(
+                yaml.safe_dump({"services": {"main": _azure_runtime()}})
+            )
         (judge / "test.sh").write_text(
             "#!/bin/sh\nset -eu\n"
             "test -s /private/evidence/events.jsonl\n"
@@ -221,7 +237,10 @@ def build_task(
         networks: dict[str, Any] = {"clinical": {"internal": True}}
         if config["api_mode"] == "live":
             service["networks"].append("model_api")
-            service["environment"] = {name: f"${{{name}:-}}" for name in _PROVIDER_ENV}
+            if config.get("provider") == "azure":
+                service.update(_azure_runtime())
+            else:
+                service["environment"] = {name: f"${{{name}:-}}" for name in _PROVIDER_ENV}
             networks["model_api"] = {}
         compose = {
             "services": {

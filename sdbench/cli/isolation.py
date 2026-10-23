@@ -12,7 +12,7 @@ from typing import Any
 from sdbench import case_data
 from sdbench.isolation.accounting import summarize_usage
 from sdbench.isolation.common import canonical_hash, write_json
-from sdbench.isolation.experiment import ExperimentConfig, analyze_trials, build_trial_configs
+from sdbench.isolation.experiment import ExperimentConfig, SCIENCE_PROMPTS, analyze_trials, build_trial_configs
 
 
 def source_hash() -> str:
@@ -23,6 +23,75 @@ def source_hash() -> str:
         if path.is_file() and not path.is_symlink() and path.suffix in {".py", ".yaml", ".txt"} and "_bundled_data" not in path.parts
     }
     return canonical_hash(hashes)
+
+
+def prepare_smoke(args: argparse.Namespace) -> None:
+    """One synthetic live encounter, explicitly separate from the paired experiment."""
+    from sdbench.harbor_integration.tasks import build_task
+
+    os.environ["SDBENCH_LOCAL_DIR"] = "disable"
+    if min(args.max_turns, args.max_model_calls, args.max_completion_tokens) < 1:
+        raise ValueError("Turn, call, and token limits must be positive")
+    if not args.model.strip():
+        raise ValueError("model must be nonempty")
+    from sdbench.isolation.providers import validate_azure_base_url
+    endpoint = validate_azure_base_url(args.base_url)
+    package = Path(__file__).resolve().parents[1]
+    shipped_data = package / "_bundled_data"
+    if not shipped_data.is_dir():
+        shipped_data = package.parent / "data"
+    if not (shipped_data / "processed_case_data/synthetic").is_dir():
+        raise ValueError("The packaged or source-checkout synthetic dataset is missing")
+    os.environ["SDBENCH_DATA_PATH"] = str(shipped_data)
+    case_data._get_case_sets.cache_clear()
+    case_data._get_case_lookup.cache_clear()
+    cases = case_data.get_case_set("synthetic", "all")
+    case = next((case for case in cases if case["case_id"] == args.case_id), None)
+    if case is None:
+        raise ValueError("case-id must identify a bundled synthetic case")
+    model_args = {"max_completion_tokens": args.max_completion_tokens,
+                  "reasoning_effort": args.reasoning_effort}
+    gk_prompt, judge_prompt = SCIENCE_PROMPTS["synthetic"]
+    paths = [package / "prompts/gatekeeper_synthetic_tests" / gk_prompt / "prompt.yaml",
+             package / "prompts/check_diagnosis" / judge_prompt / "prompt.yaml"]
+    code_hash = source_hash()
+    protocol = {
+        "schema_version": 1, "experiment_kind": "single_model_smoke",
+        "dataset": "synthetic", "case_set": "all", "case_id": case["case_id"],
+        "case_hash": canonical_hash(case), "code_hash": code_hash,
+        "prompt_hashes": {str(path.relative_to(package)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths},
+        "gk_prompt": gk_prompt, "judge_prompt": judge_prompt,
+        "diagnosis_model": args.model, "gatekeeper_model": args.model, "judge_model": args.model,
+        "diagnosis_model_args": model_args, "gatekeeper_model_args": model_args, "judge_model_args": model_args,
+        "provider": "azure", "provider_base_url": endpoint, "api_transport": "responses",
+        "api_mode": "live", "max_turns": args.max_turns, "max_model_calls": args.max_model_calls,
+        "max_questions_per_turn": None, "max_tests_per_turn": None,
+        "rate_cards": {}, "repetition": 0,
+    }
+    protocol_hash = canonical_hash(protocol)
+    trial = {**protocol, "protocol_hash": protocol_hash, "pair_id": protocol_hash,
+             "trial_id": canonical_hash({"protocol_hash": protocol_hash, "case_id": case["case_id"]}),
+             "execution_index": 0}
+    destination = args.output.resolve()
+    destination.mkdir(parents=True, exist_ok=False, mode=0o700)
+    task = build_task(case, trial, destination / "tasks" / f"synthetic-{case['case_id']}")
+    if source_hash() != code_hash:
+        raise ValueError("Source changed during preparation; prepare again in a new directory")
+    write_json(destination / "manifest.json", {
+        "schema_version": 1, "experiment_kind": "single_model_smoke", "trials": [trial],
+        "task_paths": [str(task)], "api_mode": "live",
+        "isolation": "docker-containers-shared-kernel",
+        "interpretation": "One synthetic smoke test; not an o4-mini/GPT-5 ablation or clinical validation. No clinical-cost calculation; API invoice cost is unknown without Azure billing rates.",
+    })
+    write_json(destination / "job.json", {
+        "job_name": destination.name, "jobs_dir": str(args.jobs.resolve()),
+        "n_attempts": 1, "n_concurrent_trials": 1,
+        "environment": {"type": "docker"},
+        "agents": [{"import_path": "sdbench.harbor_integration.agent:SDBenchAgent", "model_name": args.model}],
+        "datasets": [{"path": str(destination / "tasks")}],
+    })
+    print(json.dumps({"job": str(destination / "job.json"), "trials": 1,
+                      "experiment_kind": "single_model_smoke", "model": args.model}, indent=2))
 
 
 def prepare(args: argparse.Namespace) -> None:
@@ -99,6 +168,8 @@ def prepare(args: argparse.Namespace) -> None:
 
 def summarize(args: argparse.Namespace) -> None:
     manifest = json.loads(args.manifest.read_text())
+    if manifest.get("experiment_kind") == "single_model_smoke":
+        raise ValueError("This is a single-model smoke run, not a paired experiment; inspect it in harbor view and use its protected per-role usage ledgers")
     records = []
     usage = []
     expected_ids = {trial["trial_id"] for trial in manifest["trials"]}
@@ -178,6 +249,17 @@ def summarize(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    smoke = commands.add_parser("prepare-smoke", help="Prepare one live Azure synthetic encounter for the native Harbor viewer")
+    smoke.add_argument("--model", required=True)
+    smoke.add_argument("--base-url", required=True)
+    smoke.add_argument("--case-id", default="0")
+    smoke.add_argument("--max-turns", type=int, default=5)
+    smoke.add_argument("--max-model-calls", type=int, default=8)
+    smoke.add_argument("--max-completion-tokens", type=int, default=4096)
+    smoke.add_argument("--reasoning-effort", choices=["low", "medium", "high"], default="medium")
+    smoke.add_argument("--jobs", type=Path, required=True)
+    smoke.add_argument("--output", type=Path, required=True)
+    smoke.set_defaults(func=prepare_smoke)
     plan = commands.add_parser("prepare", help="Build private tasks and a frozen paired manifest; no API calls")
     plan.add_argument("--dataset", choices=["synthetic", "nejm", "mimic"], default="synthetic")
     plan.add_argument("--case-set", default="all")

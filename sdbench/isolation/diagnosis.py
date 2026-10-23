@@ -53,6 +53,7 @@ class RemoteTestRunner:
         self._url = url.rstrip("/")
         self._token = token.strip()
         self._timeout = timeout
+        self.model_calls: list[dict[str, Any]] = []
         self._opener = build_opener(ProxyHandler({}), _NoRedirect())
         session = self._request("GET", "/session")
         summary = session.get("case_summary")
@@ -152,6 +153,19 @@ class RemoteTestRunner:
             raise RemoteProtocolError("Service returned an invalid chat completion") from None
         if not completion.choices:
             raise RemoteProtocolError("Service returned a chat completion without choices")
+        # These fields already crossed the public model boundary. Keep only
+        # model identity and token counts, never provider extras or hidden text.
+        self.model_calls.append({
+            "model": completion.model,
+            "usage": None if completion.usage is None else completion.usage.model_dump(
+                include={
+                    "prompt_tokens": True, "completion_tokens": True, "total_tokens": True,
+                    "prompt_tokens_details": {"cached_tokens"},
+                    "completion_tokens_details": {"reasoning_tokens"},
+                },
+                exclude_none=True,
+            ),
+        })
         return completion
 
     def submit_diagnosis(self, diagnosis: str) -> dict[str, Any]:
@@ -191,6 +205,7 @@ def run_diagnosis(url: str, token: str, *, timeout: float = 180.0) -> dict[str, 
         "diagnosis": diagnosis,
         "turns_left": runner.turns_left,
         "agent_messages": collector.get("agent_messages", []),
+        "model_calls": runner.model_calls,
         "submission": submission,
         "authoritative": False,
     }

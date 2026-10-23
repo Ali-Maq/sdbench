@@ -112,6 +112,25 @@ class HarborTaskTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "mode"):
             build_task(case, {"api_mode": "typo"}, tmp_path / "bad")
 
+    def test_azure_credentials_only_mounted_in_trusted_roles_at_runtime(self):
+        with patch.dict("os.environ", {"SDBENCH_AZURE_TOKEN_DIR": "/PRIVATE_HOST_PATH"}):
+            task = build_task(self.case, {"api_mode": "live", "provider": "azure"}, self.tmp_path / "azure")
+        compose = yaml.safe_load((task / "environment/docker-compose.yaml").read_text())
+        judge = yaml.safe_load((task / "tests/docker-compose.yaml").read_text())
+        main = compose["services"]["main"]
+        self.assertNotIn("volumes", main)
+        self.assertNotIn("environment", main)
+        for role in (compose["services"]["gatekeeper"], judge["services"]["main"]):
+            self.assertTrue(role["volumes"][0]["read_only"])
+            self.assertEqual(role["volumes"][0]["target"], "/run/sdbench-azure")
+            self.assertIn("${SDBENCH_AZURE_TOKEN_DIR", role["volumes"][0]["source"])
+            self.assertEqual(role["environment"], {"SDBENCH_AZURE_TOKEN_FILE": "/run/sdbench-azure/token.json"})
+        config = tomllib.loads((task / "task.toml").read_text())
+        self.assertNotIn("env", config["verifier"])
+        for path in task.rglob("*"):
+            if path.is_file():
+                self.assertNotIn("/PRIVATE_HOST_PATH", path.read_text())
+
 
     @unittest.skipUnless(importlib.util.find_spec("harbor"), "Optional Harbor is not installed")
     def test_generated_config_matches_installed_harbor_schema(self):
@@ -146,6 +165,8 @@ class HarborTaskTests(unittest.TestCase):
         assert "python -m sdbench.isolation.diagnosis" in environment.calls[-1]["command"]
         assert "--token-file /run/diagnosis-token" in environment.calls[-1]["command"]
         assert "PRIVATE" not in environment.calls[-1]["command"]
+        assert context.is_empty()  # Required for Harbor's post-run conversion hook.
+        agent.populate_context_post_run(context)
         assert context.metadata["isolation"] == "docker-containers-shared-kernel"
         environment.return_code = 1
         with self.assertRaises(RuntimeError):

@@ -5,8 +5,9 @@ changes the measured performance of a fixed diagnostic agent. It uses the
 released SDBench baseline, not Microsoft's MAI-DxO orchestration system.
 
 The initial implementation runs with **three role containers on a shared
-kernel**, not three independent VMs. All default examples use deterministic
-mock responses. Mock scores test execution and accounting, not clinical ability.
+kernel**, not three independent VMs. The paired examples use deterministic
+mock responses; the separate Azure smoke command explicitly uses live calls.
+Mock scores test execution and accounting, not clinical ability.
 
 ## Existing framework contracts come first
 
@@ -23,7 +24,7 @@ remain compatible with Python 3.11.
 | Task execution | Harbor `BaseInstalledAgent`, `JobConfig`, Docker environment | Launch the existing diagnostic loop inside `main` |
 | Scheduling, concurrency, retries, job identity/resume | Harbor jobs, plans and task-content locks | A prepared paired schedule; no custom worker scheduler |
 | Separate judge and file transfer | Harbor separate verifier and sidecar artifacts | Dedicated judge image and explicit evidence selection |
-| Generic token/cost summaries | Harbor exposes `AgentContext` / `model_usage` / ATIF; these fields are not populated by this adapter yet | Protected per-role attempt ledger for gatekeeper and judge as well as diagnosis |
+| Trajectory and token display | Harbor native viewer, ATIF, `AgentContext` | Export public diagnostic messages/actions and provider-reported usage; protected ledgers also cover gatekeeper and judge |
 | Medical test costing | Existing SDBench costing modules | Not executed by this initial adapter |
 
 Relevant Harbor specifications: [custom agents](https://docs.harborframework.com/agents/custom-agents),
@@ -106,6 +107,69 @@ uv run --python 3.11 python -m compileall -q sdbench
 
 The two Harbor-specific schema/adapter checks are skipped if Harbor is absent.
 
+## Live Azure smoke test in Harbor's own dashboard
+
+`prepare-smoke` makes one bounded encounter using a bundled synthetic case and
+the same explicitly selected deployment for diagnosis, gatekeeper and judge.
+This is **not** the paired `o4-mini`/`gpt-5` experiment. It does not recreate
+MAI-DxO or establish clinical performance.
+
+Use your verified Azure resource endpoint and deployment name. For example,
+replace `<resource>` and `<tenant-id>` below with your resource and tenant:
+
+```bash
+uv run --extra harbor python -m sdbench.cli.isolation prepare-smoke \
+  --model gpt-5.4 \
+  --base-url https://<resource>.cognitiveservices.azure.com/openai/v1/ \
+  --case-id 0 --max-turns 5 --max-model-calls 8 \
+  --max-completion-tokens 4096 --reasoning-effort medium \
+  --jobs results/harbor-dashboard/jobs --output results/azure-gpt54-smoke
+
+uv run --extra harbor python -m sdbench.cli.azure_harbor \
+  --tenant <tenant-id> --config results/azure-gpt54-smoke/job.json
+
+uv run --extra harbor harbor view results/harbor-dashboard/jobs \
+  --host 127.0.0.1 --port 8080-8089 --jobs
+```
+
+The launcher delegates the entire job to `harbor run`. It uses your existing
+`az login` to acquire a short-lived Entra token, refreshes it before expiry, and
+removes its private temporary directory when the run ends. Docker Compose mounts
+that directory read-only into gatekeeper and judge. Diagnosis receives neither
+the provider credential nor your Azure login cache. Credentials are not placed
+in task configs, images, process arguments, or run artifacts.
+
+The Azure adapter uses the existing OpenAI SDK's Responses API with `store=False`
+and SDK retries disabled. It maps the returned text into SDBench's existing
+completion interface and preserves the original response and usage in the
+protected ledger. When Responses supplies message phases, only `final_answer`
+text is actionable; intermediate `commentary` is retained in raw evidence.
+Retained assistant answers are replayed with `phase: final_answer`, so progress
+messages cannot accidentally trigger duplicate clinical requests. The exact
+Responses input is also logged. Each call resends SDBench's text history; no hidden reasoning
+state or `previous_response_id` is carried between calls. Responses token caps
+include reasoning tokens as well as visible output.
+
+Open the job and then its trial in the viewer. The native trajectory shows the
+diagnostic agent's conversation, test requests, observations and final diagnosis.
+The protected `artifacts/gatekeeper-evidence/raw_calls.jsonl` and
+`verifier/raw_calls.jsonl` retain gatekeeper and judge prompts and responses for
+local inspection. The verifier result contains the grade and judging explanation.
+This is a text/action trace, not a screen recording or access to hidden model
+reasoning. The diagnostic agent never receives those privileged artifacts.
+
+Harbor's agent token display covers diagnostic calls; all-role provider usage is
+in `artifacts/gatekeeper-evidence/usage.jsonl` and
+`verifier/judge_api_calls.jsonl`. Requested deployment names and returned model
+identities are both retained. Azure dollar cost remains unknown without an
+applicable rate card/billing reconciliation. Do not apply public OpenAI prices
+to Azure charges automatically. Harbor 0.24's native token-chart tooltips may
+independently show generic LiteLLM catalog estimates even when our saved cost
+fields are unset; those are not Azure invoice amounts. Also capture the Azure
+deployment's current model version and upgrade policy: a named deployment can
+auto-upgrade even when its current version has a dated identifier. The paired `summarize` command intentionally
+rejects this single-model smoke manifest.
+
 ## Role boundaries and evidence
 
 Each task's `main` container contains source code, a session credential, and the
@@ -143,15 +207,16 @@ under ignored `results/`.
 ## Live evaluation and interpretation
 
 Prepare with `--api-mode live` only when the model choice, case access, and spending
-plan are settled. The worker requires an exported `OPENAI_API_KEY`; do not put
+plan are settled. The paired direct-OpenAI worker requires an exported `OPENAI_API_KEY`; do not put
 keys in manifests, prompts, images, or chat. Only gatekeeper and judge receive the
 provider credential. Both arms retain the same diagnostic and judge models,
 prompts, API route, limits, and model arguments. Only the gatekeeper model differs.
 
 The default shared `max_completion_tokens` is 4096. It is configurable and stored
 in the manifest. Validate model availability and common supported settings before
-the full run. The smoke tests do not verify paid API availability or clinical
-correctness.
+the full run. Mock smoke tests do not verify paid API availability or clinical
+correctness. A successful live smoke run verifies that particular configured
+deployment and transport; it does not establish clinical correctness in general.
 
 The optional `--rate-cards PATH` accepts a JSON object keyed by exact model name.
 Each entry has `effective_date` (YYYY-MM-DD), `input_per_million`,

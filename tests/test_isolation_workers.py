@@ -162,6 +162,30 @@ class DiagnosisWorkerTests(unittest.TestCase):
         self.assertNotIn("Private full case", json.dumps(result))
         self.assertNotIn("diagnosis-role-token", json.dumps(result))
         self.assertNotIn("is_synthetic", json.dumps(result))
+        self.assertEqual(result["model_calls"], [
+            {"model": "fixed-diagnosis-model", "usage": None},
+            {"model": "fixed-diagnosis-model", "usage": None},
+        ])
+
+    def test_public_model_metadata_allowlists_token_counts_without_provider_extras(self):
+        response = completion("<diagnosis>Condition A</diagnosis>")
+        response["usage"] = {
+            "prompt_tokens": 100, "completion_tokens": 40, "total_tokens": 140,
+            "prompt_tokens_details": {"cached_tokens": 20, "private_extra": "PRIVATE_MARKER"},
+            "completion_tokens_details": {"reasoning_tokens": 30, "private_extra": "PRIVATE_MARKER"},
+            "private_extra": "PRIVATE_MARKER",
+        }
+        response["private_extra"] = "PRIVATE_MARKER"
+        with public_service(["<diagnosis>Condition A</diagnosis>"]) as (url, _):
+            runner = diagnosis.RemoteTestRunner(url, "diagnosis-role-token")
+            with patch.object(runner, "_request", return_value=response):
+                runner.chat_completion([])
+        self.assertEqual(runner.model_calls, [{"model": "fixed-diagnosis-model", "usage": {
+            "prompt_tokens": 100, "completion_tokens": 40, "total_tokens": 140,
+            "prompt_tokens_details": {"cached_tokens": 20},
+            "completion_tokens_details": {"reasoning_tokens": 30},
+        }}])
+        self.assertNotIn("PRIVATE_MARKER", json.dumps(runner.model_calls))
 
     def test_remote_observations_have_no_synthetic_provenance(self):
         with public_service(["<diagnosis>Condition A</diagnosis>"]) as (url, _):
