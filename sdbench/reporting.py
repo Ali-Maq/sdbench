@@ -383,7 +383,7 @@ def generate_cost_analysis(results: List[Dict[str, Any]], config: HarnessConfig)
 
 
 
-def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config: HarnessConfig, case_set: Optional[str] = None) -> str:
+def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config: HarnessConfig, case_set: Optional[str] = None, *, report_notice: Optional[str] = None) -> str:
     """Generate an HTML overview of all results."""
     html_file = f"{html_dir}/overview.html"
 
@@ -721,6 +721,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
     <div class="header">
         <h1>{dataset_display} Diagnostic Results{title_suffix}</h1>
         <p>Agent: {html.escape(config.agent)} | Model: {html.escape(config.model)} | Case Set: {html.escape(case_set if case_set else config.case_set)}</p>
+        {f'<p class="report-notice">{html.escape(report_notice)}</p>' if report_notice else ''}
     </div>
     
     <div class="summary">
@@ -899,7 +900,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
                         <th>Model Diagnosis</th>
                         <th>Actual Diagnosis</th>
                         <th>Grader Score</th>
-                        <th>Tests (Synthetic/Real)</th>
+                        <th>Information requests (source)</th>
                         <th>Cost</th>
                         <th>Actions</th>
                     </tr>
@@ -1038,7 +1039,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
                         <td class="diagnosis-cell">{html.escape(model_diagnosis)}</td>
                         <td class="diagnosis-cell">{html.escape(actual_diagnosis)}</td>
                         <td class="score-cell">{grader_score}</td>
-                        <td class="tests-cell">{num_tests} (Synthetic: {synthetic_count}, Real: {real_count})</td>
+                        <td class="tests-cell">{num_tests} (Gatekeeper-synthesized: {synthetic_count}, Case-recorded: {real_count})</td>
                         <td class="cost-cell">{cost_display}</td>
                         <td class="actions-cell">
                             <button class="action-btn agent-btn collapsible" data-original-text="Agent Dialog">Agent Dialog</button>
@@ -1343,7 +1344,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
                 timestamp = test_log.get("timestamp", "Unknown")
                 messages = test_log.get("messages", [])
                 
-                synthetic_badge = " 🤖" if is_synthetic else " 🔬"
+                synthetic_badge = " — Gatekeeper-synthesized" if is_synthetic else " — Recorded in case narrative"
                 
                 # Display test header
                 html_content += f"""
