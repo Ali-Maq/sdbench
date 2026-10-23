@@ -6,6 +6,11 @@ This benchmark is described in [Sequential Diagnosis with Language Models](https
 
 A website for the benchmark is hosted at https://microsoft.github.io/sdbench
 
+This fork adds an optional [Harbor gatekeeper experiment adapter](docs/HARBOR_EXPERIMENT.md).
+It reuses the released SDBench baseline, gatekeeper, and judge, with separate role
+containers and paired o4-mini / GPT-5 gatekeeper trials. The default run uses mock
+responses and makes no model API calls. It is not an implementation of MAI-DxO.
+
 ## How it works
 
 For each case, the harness ([`harness/harness.py`](sdbench/harness/harness.py)) runs a sequential loop between three roles:
