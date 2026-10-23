@@ -41,6 +41,12 @@ ATIF trajectory and protected role artifacts. No real patient record was used.
 Clinical-workup costs were not calculated. API charges were not reconciled with
 Azure billing. Unknown dollars remain unknown; token counts are not an invoice.
 
+The saved live trial retains the older Harbor adapter label
+`sdbench-isolated-baseline`; its frozen manifest, diagnostic transcript, and clinical
+report identify the actual policy as `experimental_panel`. The adapter is now
+named `sdbench-isolated` for new runs. Historical execution artifacts were not
+rewritten to change their labels.
+
 ## Mock checks
 
 The mock backend returns fixed transport-test responses. Its judge deliberately
