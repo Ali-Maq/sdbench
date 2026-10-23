@@ -16,9 +16,15 @@ They establish software execution, not clinical validity or equivalence to MAI-D
 | Cache regressions | Effective routing/source identity, local FAISS rebuild/reuse, transient failure recovery, corrupt caches and interrupted/concurrent atomic writes |
 | Routing/resume regressions | Sequential and concurrent argument isolation, endpoint/credential changes, string IDs, malformed/mismatched records and completed pricing failures |
 | Browser inspection | Fictional partial-price report expands correctly; complete totals stay Unknown while known subtotal and unpriced tests remain visible |
+| Final Docker + Harbor 0.24 run | 10/10 mock encounters, five complete pairs, no failures; 40 mock calls and zero live benchmark calls |
+| Final artifacts | All ten native trajectories validate; full-role clinical report exports and passes completion checks |
+| Final wheel and source distribution | Built and inspected; fresh core-only wheel installation loads five bundled cases, passes six CLI help checks and dependency validation |
 
 Provider calls in these tests are scripted. They validate execution and failure
 handling, not the medical correctness of a price, diagnosis or judge score.
+The final job is `followups-final-20261022`. Its frozen runtime source hash
+`9ab76cba83ffdec14c8656fb24547b8dac13aa38fed94ef81e2f5c664eab17f7` matches
+the verified checkout. Generated evidence stays outside source control.
 
 ## Original cleanup verification (02db899)
 
