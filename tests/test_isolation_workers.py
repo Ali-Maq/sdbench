@@ -30,7 +30,7 @@ def completion(text: str) -> dict:
 
 
 @contextmanager
-def public_service(outputs: list[str], *, max_turns: int = 1, max_model_calls: int = 8):
+def public_service(outputs: list[str], *, max_turns: int = 1, max_model_calls: int = 8, diagnostic_agent: str = "baseline"):
     state = {"requests": [], "model_calls": 0, "turns_left": max_turns}
 
     class Handler(BaseHTTPRequestHandler):
@@ -55,6 +55,8 @@ def public_service(outputs: list[str], *, max_turns: int = 1, max_model_calls: i
             if self.path == "/session":
                 return self.send_json(200, {
                     "case_summary": "Public presentation only",
+                    "diagnostic_agent": diagnostic_agent,
+                    "max_model_calls": max_model_calls,
                     "max_turns": max_turns,
                     "turns_left": state["turns_left"],
                 })
@@ -454,6 +456,29 @@ class JudgeWorkerTests(unittest.TestCase):
                 path.write_text(text)
                 with self.assertRaises(judge.EvidenceError):
                     judge.read_evidence(path)
+
+
+
+
+class DiagnosticPolicySelectionTests(unittest.TestCase):
+    def test_unknown_policy_fails_before_model_or_test_requests(self):
+        with public_service([], diagnostic_agent="untrusted_module") as (url, state):
+            with self.assertRaises(diagnosis.RemoteProtocolError):
+                diagnosis.run_diagnosis(url, "diagnosis-role-token")
+            self.assertEqual([path for path, *_ in state["requests"]], ["/session"])
+
+    @unittest.skipUnless(__import__("importlib.util", fromlist=["find_spec"]).find_spec("langgraph"), "optional panel dependency")
+    def test_panel_uses_same_remote_test_and_submission_boundary(self):
+        with public_service(["<test>CBC</test>", "<diagnosis>Condition A</diagnosis>"],
+                            max_turns=2, diagnostic_agent="experimental_panel") as (url, state):
+            report = diagnosis.run_diagnosis(url, "diagnosis-role-token")
+            self.assertEqual(report["diagnostic_agent"], "experimental_panel")
+            self.assertEqual(report["diagnosis"], "Condition A")
+            self.assertEqual(report["submission"], {"accepted": True})
+            paths = [path for path, *_ in state["requests"]]
+            self.assertIn("/tests", paths)
+            self.assertEqual(paths[-1], "/diagnosis")
+            self.assertGreaterEqual(len(report["graph_events"]), 2)
 
 
 if __name__ == "__main__":

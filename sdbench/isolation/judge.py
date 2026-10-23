@@ -231,6 +231,7 @@ def _result_identity(config: dict[str, Any]) -> dict[str, Any]:
             "protocol_hash", "case_hash", "diagnosis_model", "judge_model", "api_mode",
         )
     }
+    result["diagnostic_agent"] = config.get("diagnostic_agent", "baseline")
     mocked = config.get("api_mode") == "mock"
     result.update(
         status="failed",

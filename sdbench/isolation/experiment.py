@@ -70,6 +70,7 @@ class ExperimentConfig:
     case_set: str
     case_ids: tuple[str, ...]
     diagnosis_model: str
+    diagnostic_agent: str = "baseline"
     gk_models: tuple[str, str] = GATEKEEPER_MODELS
     judge_model: str = "gpt-5"
     gk_prompt: str | None = None
@@ -87,6 +88,8 @@ class ExperimentConfig:
     rate_cards: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if self.diagnostic_agent not in {"baseline", "experimental_panel"}:
+            raise ValueError("diagnostic_agent must be baseline or experimental_panel")
         if self.dataset not in SCIENCE_PROMPTS:
             raise ValueError("dataset must be nejm, mimic, or synthetic")
         if not self.case_set.strip() or not self.diagnosis_model.strip() or not self.judge_model.strip():

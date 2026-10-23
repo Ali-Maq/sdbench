@@ -1,4 +1,4 @@
-"""Convert the public baseline transcript to Harbor's native ATIF format.
+"""Convert the public diagnostic transcript to Harbor's native ATIF format.
 
 This is a display record, not authoritative evidence for grading. No private
 case, gatekeeper prompt, judge record, or provider ledger is read here.
@@ -20,7 +20,7 @@ def public_diagnosis_trajectory(
     report: dict[str, Any], *, agent_name: str, model_name: str | None = None,
     session_id: str | None = None, trajectory_id: str | None = None,
 ) -> Trajectory:
-    """Preserve full visible messages and mark confirmed baseline actions.
+    """Preserve full visible messages and mark confirmed diagnostic actions.
 
     Only a test request followed by the baseline's Results message is shown as
     an executed tool call. The final submission is a deterministic client step.
@@ -34,7 +34,7 @@ def public_diagnosis_trajectory(
         and isinstance(message.get("content"), str)
         for message in messages
     ):
-        raise ValueError("Invalid public baseline messages")
+        raise ValueError("Invalid public diagnostic messages")
     calls = report.get("model_calls", [])
     assistant_count = sum(message["role"] == "assistant" for message in messages)
     calls_aligned = (
@@ -117,7 +117,7 @@ def public_diagnosis_trajectory(
             total_completion_tokens=total("output_tokens"),
             total_cached_tokens=total("cached_input_tokens"), total_steps=len(steps),
         ),
-        notes=("Public diagnosis transcript only. Baseline tag actions are reconstructed from visible "
+        notes=("Public diagnosis transcript only. XML tag actions are reconstructed from visible "
                "messages and their observations; final submission is a deterministic client action. "
                "This transcript is not authoritative grading evidence. Token counts cover received "
                "diagnosis completions only, excluding gatekeeper, judge, and failed attempts. "

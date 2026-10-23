@@ -95,7 +95,7 @@ class AzureSmokeCLITests(unittest.TestCase):
 
     def test_changed_model_limit_or_endpoint_changes_protocol_identity(self):
         hashes = []
-        settings = [{}, {"model": "other-deployment"}, {"max_model_calls": 5},
+        settings = [{}, {"model": "other-deployment"}, {"max_model_calls": 5}, {"diagnostic_agent": "experimental_panel"},
                     {"base_url": "https://other.openai.azure.com/openai/v1/"}]
         for index, override in enumerate(settings):
             output = self.root / f"prepare-{index}"

@@ -62,7 +62,10 @@ class TrialService:
         return hmac.compare_digest(authorization, f"Bearer {self.token}")
 
     def session(self) -> dict[str, Any]:
-        return {"case_summary": self.case["case_summary"], "max_turns": self.runner.max_turns, "turns_left": self.runner.turns_left}
+        return {"case_summary": self.case["case_summary"], "max_turns": self.runner.max_turns,
+                "turns_left": self.runner.turns_left,
+                "diagnostic_agent": self.config.get("diagnostic_agent", "baseline"),
+                "max_model_calls": self.config.get("max_model_calls", 150)}
 
     def dispatch(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
         if self.closed:

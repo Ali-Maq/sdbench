@@ -112,6 +112,16 @@ class HarborTaskTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "mode"):
             build_task(case, {"api_mode": "typo"}, tmp_path / "bad")
 
+    def test_panel_dependencies_are_only_in_public_diagnosis_runtime(self):
+        task = build_task(self.case, {"diagnostic_agent": "experimental_panel"}, self.tmp_path / "panel")
+        self.assertIn("langgraph==", (task / "environment/diagnosis/requirements.txt").read_text())
+        for context in ("environment/gatekeeper", "tests"):
+            self.assertNotIn("langgraph==", (task / context / "requirements.txt").read_text())
+        task_config = tomllib.loads((task / "task.toml").read_text())
+        self.assertEqual(task_config["metadata"]["diagnostic_agent"], "experimental_panel")
+        with self.assertRaisesRegex(ValueError, "diagnostic_agent"):
+            build_task(self.case, {"diagnostic_agent": "untrusted.module"}, self.tmp_path / "invalid")
+
     def test_azure_credentials_only_mounted_in_trusted_roles_at_runtime(self):
         with patch.dict("os.environ", {"SDBENCH_AZURE_TOKEN_DIR": "/PRIVATE_HOST_PATH"}):
             task = build_task(self.case, {"api_mode": "live", "provider": "azure"}, self.tmp_path / "azure")

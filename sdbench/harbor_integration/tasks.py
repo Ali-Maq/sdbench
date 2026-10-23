@@ -134,6 +134,7 @@ artifacts = [
 case_id = {quoted(case["case_id"])}
 dataset = {quoted(case.get("dataset", "unknown"))}
 api_mode = {quoted(config["api_mode"])}
+diagnostic_agent = {quoted(config.get("diagnostic_agent", "baseline"))}
 isolation = "{ISOLATION}"
 harbor_version = "{HARBOR_VERSION}"
 
@@ -174,8 +175,13 @@ def build_task(
         if field not in case_data or not str(case_data[field]).strip():
             raise ValueError(f"case.{field} must be present and nonempty")
     config.setdefault("api_mode", "mock")
+    config.setdefault("diagnostic_agent", "baseline")
+    if config["diagnostic_agent"] not in {"baseline", "experimental_panel"}:
+        raise ValueError("Unsupported diagnostic_agent")
     if config["api_mode"] not in {"mock", "live"}:
         raise ValueError("trial_config.api_mode must be 'mock' or 'live'")
+    if config["diagnostic_agent"] == "experimental_panel" and config.get("max_model_calls", 150) < 2:
+        raise ValueError("experimental_panel requires at least two model calls")
     _check_no_credentials(config)
     config["diagnosis_token"] = secrets.token_urlsafe(32)
     target = Path(destination).expanduser().resolve()
@@ -191,7 +197,10 @@ def build_task(
             directory.mkdir(parents=True)
             _copy_code(directory, public=public)
             (directory / ".dockerignore").write_text("**/__pycache__\n**/*.pyc\n.env\n")
-            (directory / "requirements.txt").write_text(_RUNTIME_REQUIREMENTS)
+            requirements = _RUNTIME_REQUIREMENTS
+            if public and config["diagnostic_agent"] == "experimental_panel":
+                requirements = (Path(__file__).parent / "panel-requirements.txt").read_text()
+            (directory / "requirements.txt").write_text(requirements)
         (main / "diagnosis-token").write_text(config["diagnosis_token"] + "\n")
         (main / "Dockerfile").write_text(
             _BASE_DOCKERFILE + "COPY diagnosis-token /run/diagnosis-token\n"

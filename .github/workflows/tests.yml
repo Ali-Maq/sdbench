@@ -1,0 +1,24 @@
+name: Tests
+on:
+  pull_request:
+  push:
+    branches: [main, feat/harbor-gatekeeper-ablation]
+permissions:
+  contents: read
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install optional graph and tracing dependencies
+        run: uv sync --frozen --extra panel --extra tracing --extra harbor
+      - name: Compile and test without model calls
+        run: |
+          uv run --no-sync python -m compileall -q sdbench
+          uv run --no-sync python -m unittest discover -s tests -v

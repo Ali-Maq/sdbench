@@ -44,7 +44,7 @@ class ServiceBoundaryTests(unittest.TestCase):
     def test_public_session_does_not_expose_private_record(self):
         status, body = self.request("/session")
         self.assertEqual(status, 200)
-        self.assertEqual(set(body), {"case_summary", "max_turns", "turns_left"})
+        self.assertEqual(set(body), {"case_summary", "max_turns", "turns_left", "diagnostic_agent", "max_model_calls"})
         self.assertNotIn("PRIVATE_", json.dumps(body))
         self.assertNotIn("token", json.dumps(body))
 
@@ -57,7 +57,7 @@ class ServiceBoundaryTests(unittest.TestCase):
 
     def test_cannot_override_model_role_or_case(self):
         valid_messages = [{"role": "user", "content": "hello"}]
-        for injected in ({"model": "gpt-5"}, {"role": "gatekeeper"}, {"case_id": "other"}):
+        for injected in ({"model": "gpt-5"}, {"role": "gatekeeper"}, {"case_id": "other"}, {"diagnostic_agent": "experimental_panel"}):
             self.assertEqual(self.request("/model", {"messages": valid_messages, **injected})[0], 400)
         self.assertEqual(self.service.diagnosis_model.calls, 0)
         self.assertEqual(self.request("/tests", {"test_names": ["CBC"], "case_id": "other"})[0], 400)

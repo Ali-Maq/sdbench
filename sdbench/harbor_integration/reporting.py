@@ -142,6 +142,7 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
         "case_title": case.get("case_title", f"Case {verified['case_id']}"),
         "model_diagnosis": verified["diagnosis"], "actual_diagnosis": case["final_diagnosis"],
         "correct": verified["correct"], "diagnosis_score": verified["diagnosis_score"],
+        "diagnostic_agent": verified.get("diagnostic_agent", "baseline"),
         "agent_messages": _messages(public["agent_messages"]),
         "check_diagnosis_messages": _messages(verified["judge"]["check_diagnosis_messages"]),
         "gatekeeper_messages": [_call_conversation(call) for call in calls if call["role"] == "gatekeeper"],
@@ -167,7 +168,7 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
         f"Provider-reported tokens: all roles/attempts={token_total() if token_total() is not None else 'unknown'}, "
         f"diagnosis only={token_total('diagnosis') if token_total('diagnosis') is not None else 'unknown'}. "
         "Clinical workup costs: not computed. API dollars: unknown; no invoice or price estimate applied. "
-        "Gatekeeper Dialogue includes every recorded attempt; Agent Dialogue is the baseline-visible transcript. "
+        "Gatekeeper Dialogue includes every recorded attempt; Agent Dialogue is the diagnostic policy's visible transcript. "
         "This host-only audit report contains private reference material and never enters the diagnosis container."
     )
 
@@ -190,7 +191,7 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
                                "role": call["role"], "status": call.get("status"),
                                "sha256": _sha256(line), "parts": names})
     (destination / "result.json").write_text(json.dumps(mapped, ensure_ascii=False, indent=2) + "\n")
-    config = HarnessConfig(dataset=verified["dataset"], agent="isolated baseline",
+    config = HarnessConfig(dataset=verified["dataset"], agent="isolated " + verified.get("diagnostic_agent", "baseline"),
                            model=verified["diagnosis_model"], case_set="saved encounter",
                            azure_storage_enabled=False)
     html_path = Path(generate_html_overview([mapped], str(destination), config, report_notice=notice))

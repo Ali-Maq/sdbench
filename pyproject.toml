@@ -24,6 +24,10 @@ dependencies = [
 # Harbor itself requires Python 3.12; the core package remains Python 3.11+.
 # Install with `uv sync --python 3.12 --extra harbor`.
 harbor = ["harbor==0.24.0; python_version >= '3.12'"]
+# Experimental, paper-inspired diagnostic policy; not Microsoft's MAI-DxO release.
+panel = ["langgraph>=1.0,<2"]
+# Optional host-side export of scrubbed usage metadata; never required by agents.
+tracing = ["langfuse>=4,<5"]
 # CPT-code grounded costing (`--costing-method unified_cpt_llm`): fuzzy + vector
 # matching of test names against a hospital charge master.
 cpt_costing = [

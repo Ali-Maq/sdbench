@@ -26,7 +26,7 @@ class SDBenchAgent(BaseInstalledAgent):
 
     @staticmethod
     def name() -> str:
-        return "sdbench-isolated-baseline"
+        return "sdbench-isolated"
 
     async def install(self, environment: BaseEnvironment) -> None:
         # Dependencies and client source are baked into the public role image.
@@ -62,14 +62,20 @@ class SDBenchAgent(BaseInstalledAgent):
         report_path = logs_dir / "diagnosis.json"
         if not report_path.is_file():
             return None
+        report = json.loads(report_path.read_text())
         return public_diagnosis_trajectory(
-            json.loads(report_path.read_text()), agent_name=self.name(), model_name=self.model_name,
+            report,
+            agent_name="sdbench-isolated-" + report.get("diagnostic_agent", "baseline"),
+            model_name=self.model_name,
             session_id=self.session_id,
             trajectory_id=str(self.context_id) if self.context_id else None,
         )
 
     def populate_context_post_run(self, context: AgentContext) -> None:
+        report_path = self.logs_dir / "diagnosis.json"
+        report = json.loads(report_path.read_text()) if report_path.is_file() else {}
         context.metadata = {
+            "diagnostic_agent": report.get("diagnostic_agent", "baseline"),
             "isolation": "docker-containers-shared-kernel",
             "model_execution": "role-bound-gatekeeper-service",
             "trajectory_scope": "public-diagnosis-transcript",

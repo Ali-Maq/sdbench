@@ -1,30 +1,19 @@
-# SDBench project website
+# Project documentation
 
-The static landing page for SDBench, served via GitHub Pages from this `docs/`
-folder. It is plain HTML + [Bulma](https://bulma.io/) CSS —
-**no build step**. Everything in `docs/` is served as-is.
+Start with the [repository README](../README.md), then choose a guide:
 
-## Files
+- [Harbor experiments](HARBOR_EXPERIMENT.md): role boundaries, commands, paired comparisons, reports, and limits.
+- [Agent extensions](AGENT_EXTENSIONS.md): the optional LangGraph panel, provenance, and tracing.
+- [Verification record](VERIFICATION.md): observed test results, live outcome, and remaining research work.
+- [Original MAI-DxO source audit](mai_dxo_source_audit.json): exactly which official sources were checked and what was released.
+- [Run SDBench](../RUN_SDBENCH.md): the upstream evaluation and costing workflow.
 
-```
-docs/
-  index.html              # the single scrolling page
-  README.md
-  static/
-    css/  bulma.min.css, index.css
-    images/ PaperCover.jpg, figure1.png
-```
+## Upstream website assets
 
-You can **double-click `index.html`** to preview the page — no local server
-required.
+`index.html` and `static/` are Microsoft's original SDBench project website assets,
+retained with their attribution. They describe the upstream paper and benchmark,
+not the implementation status of this fork. The fork's README and guides above
+are the source of truth for Harbor and experimental-agent support.
 
-## Enabling GitHub Pages
-
-Repository **Settings → Pages → Build and deployment**:
-
-- **Source:** Deploy from a branch
-- **Branch:** `main` (or whichever branch holds this `docs/`), folder **`/docs`**
-
-The site then publishes at `https://microsoft.github.io/sdbench/`. No Actions
-workflow is required. All asset paths are relative, so the site works under the
-project sub-path and survives a repository rename.
+The upstream site is [microsoft.github.io/sdbench](https://microsoft.github.io/sdbench/).
+This fork does not publish a replacement website or claim to be the official project.
