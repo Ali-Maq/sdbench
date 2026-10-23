@@ -74,5 +74,5 @@ uv run python -m sdbench.cli.harness --help
 - Optional features are isolated behind dependency extras and imported lazily, so the package runs
   on a minimal core (`openai`, `python-dotenv`, `pyyaml`, `tqdm`, `numpy`). Extras: `cpt_costing` (CPT-code
   costing), `azure` (Blob Storage upload + CosmosDB costing cache), `harbor` (Python
-  3.12 runner), and `tracing` (host-side Langfuse metadata export). Install one with
+  3.12 runner), and `tracing` (host-side Langfuse export; full clinical mode is local-only and opt-in). Install one with
   `uv sync --extra <name>`, or all with `uv sync --all-extras`.

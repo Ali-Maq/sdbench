@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -98,6 +99,12 @@ class AzureResponsesTests(unittest.TestCase):
     def raw(self):
         return [json.loads(line) for line in (self.root / "raw_calls.jsonl").read_text().splitlines()]
 
+    def assert_attempt_timestamps(self, usage, raw):
+        for key in ("started_at", "finished_at"):
+            self.assertEqual(raw[key], usage[key])
+            self.assertEqual(datetime.fromisoformat(usage[key]).utcoffset(), timedelta(0))
+        self.assertLessEqual(usage["started_at"], usage["finished_at"])
+
     def test_exhausted_call_budget_does_not_retry_or_create_a_provider_attempt(self):
         backend = self.backend(config={**self.config, "max_model_calls": 1})
         messages = [{"role": "user", "content": "Fixture"}]
@@ -143,6 +150,7 @@ class AzureResponsesTests(unittest.TestCase):
         self.assertAlmostEqual(usage["estimated_cost_usd"], 0.0005625)
         self.assertIsNone(usage["actual_paid_usd"])
         raw = self.raw()[0]
+        self.assert_attempt_timestamps(usage, raw)
         self.assertEqual(raw["response"]["object"], "response")
         self.assertEqual(raw["response"]["usage"]["input_tokens"], 100)
         self.assertEqual(raw["request"], payload)
@@ -286,6 +294,28 @@ class AzureResponsesTests(unittest.TestCase):
         self.assertEqual(self.ledger()[0]["http_status"], 400)
         self.assertEqual(self.ledger()[0]["usage"]["input_tokens"], 100)
         self.assertEqual(self.raw()[0]["response"], body)
+        self.assert_attempt_timestamps(self.ledger()[0], self.raw()[0])
+
+    def test_mock_attempt_timestamps_do_not_determine_latency(self):
+        backend = providers.build_backend(
+            {**self.config, "api_mode": "mock"}, "diagnosis", self.root / "usage.jsonl",
+        )
+        start = datetime(2026, 1, 1, 12, tzinfo=timezone.utc)
+        # A wall-clock correction must not make the measured duration negative.
+        finish = start - timedelta(seconds=30)
+        with patch.object(providers, "datetime") as clock, \
+                patch.object(providers.time, "monotonic", side_effect=[10.0, 12.5]):
+            clock.now.side_effect = [start, finish]
+            backend(messages=[{"role": "user", "content": "Fictional transport fixture"}])
+        entry, raw = self.ledger()[0], self.raw()[0]
+        self.assertEqual(entry["started_at"], start.isoformat())
+        self.assertEqual(entry["finished_at"], finish.isoformat())
+        self.assertEqual(raw["started_at"], entry["started_at"])
+        self.assertEqual(raw["finished_at"], entry["finished_at"])
+        self.assertEqual(entry["latency_seconds"], 2.5)
+        self.assertEqual(entry["status"], "completed")
+        self.assertEqual(entry["api_mode"], "mock")
+        self.assertEqual(self.requests, [])
 
     def test_missing_usage_is_unknown_instead_of_zero(self):
         result = self.backend(response_body(usage=False))(messages=[{"role": "user", "content": "hello"}])

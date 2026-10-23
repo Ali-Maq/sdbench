@@ -24,8 +24,9 @@ disclosure still needs evaluation.
 
 **Original MAI-DxO is not included.** The earlier paper-inspired panel was removed
 because it was outside this project's baseline study. See [upstream sources](docs/SOURCES.md).
-The retained Langfuse exporter sends API metadata only; it does not add a clinical
-evaluator or change the diagnostic workflow.
+The optional Langfuse exporter shows saved role conversations, requested evidence,
+judge context and usage on a local server. Metadata-only export remains the default.
+Neither mode adds a clinical evaluator or changes the diagnostic workflow.
 
 ## Run a fictional smoke test
 
@@ -67,7 +68,7 @@ cost can leave Harbor's Pareto plot empty. Use time, or tokens when usage was re
 | Azure Responses and refreshed credentials | Single-episode smoke and recorded routes; not the paired analyzer |
 | Native trajectory, clinical report, usage ledger | Stock-mode model flags alone are not verified source evidence |
 | Recorded-only private episodes | Gatekeeper selects IDs; code returns stored excerpts, with source and timing checks before grading |
-| Optional Langfuse export | Post-run metadata; no clinical text or reconstructed execution waterfall |
+| Optional Langfuse export | Metadata by default; opt-in local full trace with saved messages, evidence, score and recorded API timing; completed-run export, not live streaming |
 
 The planned study uses diagnostic episodes from longitudinal myeloma records.
 Private cases and their evaluation outcomes are kept outside this repository;

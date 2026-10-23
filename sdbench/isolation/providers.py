@@ -13,6 +13,7 @@ import os
 import re
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urlsplit
@@ -267,6 +268,7 @@ class MeteredBackend:
         messages = list(messages)
         call_id = uuid.uuid4().hex
         start = time.monotonic()
+        started_at = datetime.now(timezone.utc).isoformat()
         request_payload = {"model": self.model, "stream": False, **self.request_args}
         effective_input = None
         if self.transport == "responses":
@@ -312,6 +314,7 @@ class MeteredBackend:
             # SDBench's retry logger must never print provider errors containing prompts.
             raise RuntimeError(f"Provider call failed ({error_type}); see protected usage ledger") from None
         finally:
+            finished_at = datetime.now(timezone.utc).isoformat()
             raw_response = response.model_dump() if response is not None else raw_error_response
             usage = raw_response.get("usage") if raw_response is not None else None
             provider_request_id = getattr(response, "_request_id", None) or error_request_id
@@ -325,6 +328,9 @@ class MeteredBackend:
             entry.update({
                 "trial_id": self.config["trial_id"], "protocol_hash": self.config["protocol_hash"],
                 "status": "error" if error_type else "completed", "error_type": error_type,
+                "started_at": started_at, "finished_at": finished_at,
+                # Wall-clock timestamps place attempts in a trace. Duration
+                # stays monotonic, so a host clock adjustment cannot alter it.
                 "latency_seconds": time.monotonic() - start,
                 "provider": self.provider, "api_transport": self.transport,
                 "provider_base_url": self.base_url,
@@ -338,6 +344,7 @@ class MeteredBackend:
             append_jsonl(self.ledger_path, entry)
             append_jsonl(self.ledger_path.with_name("raw_calls.jsonl"), {
                 "call_id": call_id, "trial_id": self.config["trial_id"], "role": self.role,
+                "started_at": started_at, "finished_at": finished_at,
                 "messages": messages, "response": raw_response,
                 "request": request_payload,
                 "effective_input": effective_input,

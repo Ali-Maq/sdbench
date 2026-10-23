@@ -217,10 +217,10 @@ use those supplied rates; `actual_paid_usd` remains null without billing reconci
 Do not apply public OpenAI prices to Azure automatically. Clinical-workup costing
 remains available through the [stock runner](../RUN_SDBENCH.md), not this adapter.
 
-## Optional Langfuse metadata export
+## Optional Langfuse workflow export
 
-The [exporter](../sdbench/harbor_integration/tracing.py) reads only trusted usage
-ledgers. It includes role, status, attempts, tokens, latency and hashed technical
+By default, the [exporter](../sdbench/harbor_integration/tracing.py) reads only trusted usage
+ledgers. This metadata mode includes role, status, attempts, tokens, latency and hashed technical
 references; excludes case text, messages, prompts, test names and clinical scores.
 Span timestamps are export time, not an original execution waterfall. Hashing
 technical references is not a de-identification certification.
@@ -236,3 +236,63 @@ on the host, install `--extra tracing` and add `--send` with a new output path.
 The pinned SDK major supports the tested local v3 server. Check server acceptance;
 SDK flush alone is not proof. Re-export appends observations, so send a reviewed
 trial once. Clinical dialogue remains in local Harbor/SDBench artifacts.
+
+For the complete clinical audit view, explicitly select `--content full` and
+provide the exact frozen judge case used by a completed recorded-only trial:
+
+```bash
+uv run --extra tracing python -m sdbench.harbor_integration.tracing \
+  --trial-dir <completed-harbor-trial-directory> \
+  --case <frozen-private-case.json> --content full \
+  --output <private-directory>/full-trace-preview.json
+```
+
+This mode validates the case and event hashes, recorded findings, final diagnosis,
+and the identity/configuration and token counts of every raw API attempt against
+the trusted usage ledgers. It produces a private local preview without making a
+model call. It does not alter the trial, prompts, evidence or scores.
+
+The resulting tree is:
+
+```text
+Harbor trial                         opening, submitted diagnosis, saved score
+├── diagnostic agent                 opening and submitted diagnosis
+│   └── each model attempt           saved messages, visible output, usage
+├── gatekeeper                       each model attempt
+│   └── requested test batch
+│       └── each recorded retrieval  question, exact answer, evidence/source IDs
+└── judge                            frozen reference, candidate and saved score
+    └── each model attempt           exact judge messages and visible output
+```
+
+The full reference is added only to the judge branch. An auditor can inspect the
+whole trace, but agents receive none of this export; their existing role boundaries
+are unchanged. Failed provider attempts remain visible. Hidden/encrypted model
+reasoning is excluded. Scores are the saved judge's assessments, not new grades.
+
+Full-content sending requires a literal loopback endpoint such as
+`LANGFUSE_BASE_URL=http://127.0.0.1:3001`, with project keys in the host environment.
+Add `--send` and a new preview output path after reviewing the preview. Keep the
+server private and authenticated. The exporter uses the official Python SDK v4's
+typed ingestion API for **self-hosted Langfuse v3** (tested locally with v3.159.0).
+Langfuse v4 removes that ingestion API; this full-content adapter must be migrated
+before upgrading the server. Metadata mode continues to use the SDK's OpenTelemetry
+path. See [Langfuse's compatibility documentation](https://langfuse.com/docs/observability/sdk/overview).
+The v3 ingestion route represents roles and tools as spans; names and
+`workflow_observation_type` metadata preserve their purpose. Actual API attempts
+are generation observations.
+
+New provider ledgers record UTC start/end times as well as monotonic latency.
+The full trace uses those intervals; tool retrievals show their recorded completion
+instant because individual start times were not captured. Older calls without valid
+timestamps receive explicitly labeled export-time placeholders, never invented
+execution times. Parent spans enclose the displayed children. This is an export of
+a completed workflow, not live streaming or screen video.
+
+Only generation observations carry token usage, avoiding double counting parent
+totals. Cached/reasoning subsets remain metadata. Model names are metadata rather
+than catalogue pricing inputs; API dollars stay unknown without billing evidence.
+Trace and observation IDs are deterministic, so resubmitting the same completed
+trial updates the same observations. The receipt checks every ingestion event's
+acknowledgement, but server processing is asynchronous: verify the trace appears
+in the local UI/API before calling the export complete.

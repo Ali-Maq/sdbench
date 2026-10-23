@@ -147,5 +147,190 @@ class MetadataExportTests(unittest.TestCase):
             client.shutdown()
 
 
+class FullExportTests(unittest.TestCase):
+    def setUp(self):
+        from sdbench.isolation.common import canonical_hash
+        from sdbench.isolation.recorded import render_selection
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        for path in ('agent', 'verifier', 'artifacts/gatekeeper-evidence'):
+            (self.root / path).mkdir(parents=True)
+        self.case = json.loads((Path(__file__).parent / 'fixtures/recorded_episode.json').read_text())
+        self.case_path = self.root / 'case.json'
+        self.write('case.json', self.case)
+        finding = render_selection(self.case, 'CBC', ['cbc'])
+        missing = render_selection(self.case, 'MRI', [])
+        self.events = [{'event': 'tests', 'sequence': 2, 'timestamp': 1767268801.0,
+                        'requested_test_names': ['CBC', 'MRI'], 'test_results': [finding, missing]},
+                       {'event': 'terminal', 'status': 'completed', 'diagnosis': 'Multiple myeloma'}]
+        self.write('artifacts/gatekeeper-evidence/events.jsonl', self.events, lines=True)
+        self.verified = {
+            'trial_id': 'fictional-full-trial', 'status': 'completed', 'case_id': self.case['case_id'],
+            'case_hash': canonical_hash(self.case), 'evidence_hash': canonical_hash(self.events),
+            'diagnosis': 'Multiple myeloma', 'diagnosis_score': 5, 'correct': True,
+            'api_mode': 'mock', 'mocked': True, 'protocol_hash': 'fixture-protocol',
+            'diagnosis_model': 'test-model', 'gatekeeper_model': 'test-model', 'judge_model': 'test-model',
+            'gatekeeper_mode': 'recorded_only', 'recorded_evidence_integrity': 'validated',
+            'test_logs': [{**{k: v for k, v in item.items() if k != 'results'}, 'result': item['results']}
+                          for item in (finding, missing)],
+            'judge': {'check_diagnosis_output': '**REASONING**: Fixture. **SCORE**: 5'},
+        }
+        self.write('verifier/result.json', self.verified)
+        self.write('result.json', {'finished_at': '2026-01-01T12:00:02+00:00', 'exception_info': None})
+        self.write('agent/diagnosis.json', {'status': 'completed', 'diagnosis': 'Multiple myeloma'})
+        self.ledger, self.raw = [], []
+        for index, role in enumerate(('diagnosis', 'gatekeeper', 'judge')):
+            common = {'trial_id': 'fictional-full-trial', 'call_id': role, 'role': role,
+                      'status': 'completed', 'api_mode': 'mock',
+                      'started_at': f'2026-01-01T12:00:0{index}+00:00',
+                      'finished_at': f'2026-01-01T12:00:0{index}.500000+00:00'}
+            self.ledger.append({**common, 'model': 'test-model', 'attempt': 1, 'latency_seconds': .5,
+                                'protocol_hash': 'fixture-protocol',
+                                'usage': {'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15,
+                                          'cached_input_tokens': None, 'reasoning_tokens': None}})
+            self.raw.append({**common, 'request': {'model': 'test-model'},
+                'messages': [{'role': 'system', 'content': self.case['full_text']
+                              if role == 'judge' else 'No reference in this role.'}],
+                'response': {'object': 'response', 'usage': {'input_tokens': 10, 'output_tokens': 5},
+                             'output': [{'type': 'reasoning', 'encrypted_content': 'HIDDEN_DO_NOT_EXPORT'},
+                                        {'type': 'message', 'phase': 'final_answer',
+                                         'content': [{'type': 'output_text', 'text': 'Visible response'}]}]}})
+        self.write_calls()
+
+    def write(self, name, value, lines=False):
+        (self.root / name).write_text(''.join(json.dumps(x) + '\n' for x in value) if lines else json.dumps(value))
+
+    def write_calls(self):
+        for collection, name in ((self.ledger, 'usage.jsonl'), (self.raw, 'raw_calls.jsonl')):
+            self.write('artifacts/gatekeeper-evidence/' + name, collection[:2], lines=True)
+            target = 'judge_api_calls.jsonl' if name == 'usage.jsonl' else name
+            self.write('verifier/' + target, collection[2:], lines=True)
+
+    def build(self):
+        from sdbench.harbor_integration.tracing import build_full_export
+        return build_full_export(self.root, self.case_path)
+
+    def test_full_tree_exposes_exact_findings_and_reference_only_under_judge(self):
+        before = {p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        with patch('socket.create_connection', side_effect=AssertionError('No network')):
+            payload = self.build()
+        self.assertEqual(payload, self.build())
+        self.assertNotIn('HIDDEN_DO_NOT_EXPORT', json.dumps(payload))
+        roles = payload['roles']
+        for item in (payload['input'], payload['output'], payload['metadata'], roles[0], roles[1]):
+            self.assertNotIn('FICTIONAL_REFERENCE_ONLY_MARKER', json.dumps(item))
+        self.assertIn('FICTIONAL_REFERENCE_ONLY_MARKER', json.dumps(roles[2]))
+        self.assertEqual(roles[1]['children'][-1]['children'][0]['output'], self.events[0]['test_results'][0])
+        self.assertEqual(roles[1]['children'][-1]['children'][1]['output']['evidence_status'], 'not_documented')
+        self.assertEqual(payload['metadata']['api_attempts'], 3)
+        for path, data in before.items():
+            self.assertEqual(path.read_bytes(), data)
+
+    def test_source_case_and_usage_tampering_fail_closed(self):
+        from sdbench.harbor_integration.tracing import build_full_export
+        self.case['full_text'] += 'changed'
+        self.write('case.json', self.case)
+        with self.assertRaisesRegex(ValueError, 'reference case'):
+            build_full_export(self.root, self.case_path)
+        self.case['full_text'] = self.case['full_text'][:-7]
+        self.write('case.json', self.case)
+        self.raw[0]['response']['usage']['input_tokens'] = 99
+        self.write_calls()
+        with self.assertRaisesRegex(ValueError, 'token counts'):
+            self.build()
+
+    def test_missing_raw_call_wrong_role_and_timestamp_mismatch_fail(self):
+        self.raw[0]['role'] = 'judge'
+        self.write_calls()
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            self.build()
+        self.raw[0]['role'] = 'diagnosis'
+        self.raw[0]['finished_at'] = None
+        self.write_calls()
+        with self.assertRaisesRegex(ValueError, 'timestamps'):
+            self.build()
+
+    def test_full_send_rejects_non_loopback_before_sdk_construction(self):
+        from sdbench.harbor_integration.tracing import send_full_export
+        for host in ('https://cloud.langfuse.com', 'http://localhost:3001', 'http://192.168.1.2:3001'):
+            with self.subTest(host=host), patch.dict(os.environ, {'LANGFUSE_BASE_URL': host}, clear=True):
+                with self.assertRaisesRegex(ValueError, 'literal loopback'):
+                    send_full_export(self.build())
+
+    def test_failed_api_attempt_is_preserved_with_unknown_usage(self):
+        common = {"call_id": "failed-diagnosis", "role": "diagnosis", "status": "error",
+                  "trial_id": "fictional-full-trial", "api_mode": "mock"}
+        failed_ledger = {**self.ledger[0], **common, "usage": {}, "attempt": 2}
+        failed_raw = {**self.raw[0], **common, "response": None}
+        self.write('artifacts/gatekeeper-evidence/usage.jsonl', [*self.ledger[:2], failed_ledger], lines=True)
+        self.write('artifacts/gatekeeper-evidence/raw_calls.jsonl', [*self.raw[:2], failed_raw], lines=True)
+        payload = self.build()
+        failed = payload['roles'][0]['children'][-1]
+        self.assertEqual(failed['metadata']['status'], 'error')
+        self.assertEqual(failed['usage_details'], {})
+        self.assertEqual(failed['output'], [])
+        self.assertEqual(payload['metadata']['api_attempts'], 4)
+
+    @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
+    def test_typed_sdk_hierarchy_timestamps_usage_and_acknowledgements(self):
+        from types import SimpleNamespace
+        from sdbench.harbor_integration.tracing import _full_ingestion_events, send_full_export
+        payload = self.build()
+        events = _full_ingestion_events(payload)
+        bodies = [event.body for event in events]
+        generations = [body for body in bodies if hasattr(body, 'usage_details')]
+        self.assertEqual(len(generations), 3)
+        self.assertEqual(sum(body.usage_details['total'] for body in generations), 45)
+        self.assertEqual(generations[0].start_time.isoformat(), self.ledger[0]['started_at'])
+        self.assertEqual(generations[0].end_time.isoformat(), self.ledger[0]['finished_at'])
+        self.assertTrue(all(body.model is None and body.cost_details is None for body in generations))
+        by_id = {body.id: body for body in bodies}
+        for gen in generations:
+            self.assertTrue(by_id[gen.parent_observation_id].name.startswith('sdbench.'))
+        ids = [body.id for body in bodies]
+        self.assertEqual(ids, [event.body.id for event in _full_ingestion_events(payload)])
+        typed = [body for body in bodies if hasattr(body, 'type')]
+        self.assertTrue(all(body.type in {'SPAN', 'GENERATION', 'EVENT'} for body in typed))
+        tools = [body for body in bodies if getattr(body, 'metadata', None)
+                 and body.metadata.get('workflow_observation_type') == 'retriever']
+        self.assertEqual(len(tools), 2)
+        self.assertTrue(all(body.start_time == body.end_time for body in tools))
+        self.assertTrue(all(body.start_time.timestamp() == self.events[0]['timestamp'] for body in tools))
+        client = Mock()
+        client.api.ingestion.batch.side_effect = lambda *, batch: SimpleNamespace(
+            errors=[], successes=[SimpleNamespace(id=item.id) for item in batch])
+        result = send_full_export(payload, client=client)
+        self.assertTrue(result['server_acceptance_verified'])
+        client.api.ingestion.batch.return_value = SimpleNamespace(errors=['bad'], successes=[])
+        client.api.ingestion.batch.side_effect = None
+        with self.assertRaisesRegex(RuntimeError, 'acknowledge'):
+            send_full_export(payload, client=client)
+
+    @unittest.skipUnless(importlib.util.find_spec('langfuse'), 'Optional Langfuse SDK is not installed')
+    def test_missing_and_reversed_timestamps_are_not_invented(self):
+        from sdbench.harbor_integration.tracing import _full_ingestion_events
+        for collection in (self.ledger, self.raw):
+            collection[0].pop('started_at')
+            collection[0].pop('finished_at')
+            collection[1]['started_at'], collection[1]['finished_at'] = (
+                collection[1]['finished_at'], collection[1]['started_at'])
+        self.write_calls()
+        generations = [event.body for event in _full_ingestion_events(self.build())
+                       if event.type == 'generation-create']
+        for body in generations[:2]:
+            self.assertEqual(body.start_time, body.end_time)
+            self.assertIn('export-time placeholder', body.metadata['displayed_timing'])
+
+    def test_full_cli_preview_is_private_and_does_not_send(self):
+        import stat
+        output = self.root / 'full-preview.json'
+        with patch('sdbench.harbor_integration.tracing._configured_client') as client:
+            self.assertEqual(main(['--trial-dir', str(self.root), '--case', str(self.case_path),
+                                   '--content', 'full', '--output', str(output)]), 0)
+        client.assert_not_called()
+        self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
+
+
 if __name__ == "__main__":
     unittest.main()

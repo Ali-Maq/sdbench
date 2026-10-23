@@ -6,6 +6,32 @@ They establish software execution, not clinical validity or equivalence to MAI-D
 The public checks below use fictional cases. Private evaluation records and
 their clinical outcomes are not redistributed in this repository.
 
+## Full local Langfuse export (2026-10-23)
+
+[Issue #14](https://github.com/Ali-Maq/sdbench/issues/14) adds an opt-in audit
+export of completed recorded-only trials. Diagnostic and judge prompts are
+unchanged. Provider ledgers now also record UTC start/end timestamps.
+
+| Check | Observed result |
+| --- | --- |
+| Python 3.12, all extras | 262 tests passed |
+| Python 3.11, compatible extras | 254 passed; eight expected Harbor-only skips |
+| Focused Langfuse checks | 17 tests passed, including altered case/usage rejection, role isolation, exact evidence, failed attempts, unknown usage, timing and ingestion acknowledgements |
+| Native Harbor fictional run | Completed without exceptions; scripted judge 3/5 and reward 0, as expected for this transport fixture |
+| Local Langfuse v3.159.0 | Server API readback and browser show 11 observations: root, three roles, four model attempts, one request batch and two retrievals; saved score 3/5 |
+| Content and timing | Opening, saved diagnosis, reference and retrieved text match the saved artifacts; provider intervals use recorded UTC timestamps; retrievals show completion instants |
+
+The initial server integration rejected six semantic observation types even
+though the SDK accepted their typed objects. The corrected v3 adapter represents
+roles and tools as spans, retaining their purpose in names and metadata. Stable
+observation IDs repaired the partial fictional trace without duplicate nodes.
+Unit tests now enforce the server's supported types. No clinical data was used
+to debug that compatibility issue.
+
+This is a completed-run export, not live streaming. No new judge is run during
+export. Model names remain metadata to avoid automatic catalogue price estimates;
+actual API charges remain unknown. See the [workflow and commands](HARBOR_EXPERIMENT.md#optional-langfuse-workflow-export).
+
 ## Evidence-aware retrieval verification (2026-10-23)
 
 `recorded-id-selector-v2` supplies the selector with allowed excerpt text and
@@ -219,8 +245,9 @@ Clinical costing inside Harbor, invoice reconciliation, live paired gatekeeper
 results, semantic disclosure evaluation, one-shot controls, evaluator ensembles
 and patient-level cohort analysis remain unimplemented or unmeasured. Failed
 encounters have raw evidence but no completed clinical HTML view. Native
-Codex/Claude Code clinical tool adapters and full clinical Langfuse export are
-not implemented. Original MAI-DxO remains unavailable in the inspected sources;
+Codex/Claude Code clinical tool adapters are not implemented. Full clinical
+Langfuse export is now available as a separate, opt-in local audit view; it does
+not stream execution or add another evaluator. Original MAI-DxO remains unavailable in the inspected sources;
 this extension evaluates the released baseline.
 
 ## Historical fictional runs
