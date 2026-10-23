@@ -25,6 +25,75 @@ def source_hash() -> str:
     return canonical_hash(hashes)
 
 
+def prepare_recorded(args: argparse.Namespace) -> None:
+    """Freeze one local recorded-evidence episode; never call a model here."""
+    from sdbench.harbor_integration.tasks import build_task
+    from sdbench.isolation.recorded import (
+        SELECTOR_PROMPT_VERSION, gatekeeper_case, validate_recorded_case,
+    )
+
+    os.environ["SDBENCH_LOCAL_DIR"] = "disable"
+    case = json.loads(args.case.read_text())
+    validate_recorded_case(case)
+    if min(args.max_turns, args.max_model_calls, args.max_completion_tokens) < 1:
+        raise ValueError("Turn, call, and token limits must be positive")
+    models = {role: getattr(args, f"{role}_model") for role in ("diagnosis", "gatekeeper", "judge")}
+    if any(not model.strip() for model in models.values()):
+        raise ValueError("Every role needs an explicit nonempty model")
+    route = {"provider": args.provider, "api_transport": "chat_completions"}
+    if args.provider == "azure":
+        from sdbench.isolation.providers import validate_azure_base_url
+        route.update(provider_base_url=validate_azure_base_url(args.base_url), api_transport="responses")
+    elif args.base_url:
+        raise ValueError("--base-url is only used with --provider azure")
+    package = Path(__file__).resolve().parents[1]
+    prompt = package / "prompts/check_diagnosis/v3_reasoning/prompt.yaml"
+    code_hash = source_hash()
+    model_args = {"max_completion_tokens": args.max_completion_tokens}
+    if args.reasoning_effort:
+        model_args["reasoning_effort"] = args.reasoning_effort
+    protocol = {
+        "schema_version": 1, "experiment_kind": "recorded_episode",
+        "dataset": case["dataset"], "case_id": case["case_id"],
+        "case_hash": canonical_hash(case), "gatekeeper_case_hash": canonical_hash(gatekeeper_case(case)),
+        "code_hash": code_hash, "gatekeeper_mode": "recorded_only",
+        "gk_prompt": SELECTOR_PROMPT_VERSION, "judge_prompt": "v3_reasoning",
+        "prompt_hashes": {str(prompt.relative_to(package)): hashlib.sha256(prompt.read_bytes()).hexdigest()},
+        "diagnostic_agent": "baseline", "api_mode": args.api_mode,
+        "max_turns": args.max_turns, "max_model_calls": args.max_model_calls,
+        "max_questions_per_turn": None, "max_tests_per_turn": None,
+        "rate_cards": {}, "repetition": 0, **route,
+    }
+    for role, model in models.items():
+        protocol[f"{role}_model"] = model
+        protocol[f"{role}_model_args"] = dict(model_args)
+    protocol_hash = canonical_hash(protocol)
+    trial = {**protocol, "protocol_hash": protocol_hash, "pair_id": protocol_hash,
+             "trial_id": canonical_hash({"protocol_hash": protocol_hash, "case_id": case["case_id"]}),
+             "execution_index": 0}
+    destination = args.output.resolve()
+    destination.mkdir(parents=True, exist_ok=False, mode=0o700)
+    # Neutral directory names also keep diagnosis container paths free of cohort hints.
+    task = build_task(case, trial, destination / "tasks" / "episode-0001")
+    if source_hash() != code_hash:
+        raise ValueError("Source changed during preparation; prepare again in a new directory")
+    write_json(destination / "manifest.json", {
+        "schema_version": 1, "experiment_kind": "recorded_episode", "trials": [trial],
+        "task_paths": [str(task)], "api_mode": args.api_mode,
+        "isolation": "docker-containers-shared-kernel",
+        "interpretation": "One retrospective recorded-evidence episode; not MAI-DxO, an as-of replay, a paired ablation or a population estimate. Mock calls test execution only. Clinical costs are not calculated; API invoice cost is unknown.",
+    })
+    write_json(destination / "job.json", {
+        "job_name": destination.name, "jobs_dir": str(args.jobs.resolve()),
+        "n_attempts": 1, "n_concurrent_trials": 1,
+        "environment": {"type": "docker"},
+        "agents": [{"import_path": "sdbench.harbor_integration.agent:SDBenchAgent", "model_name": models["diagnosis"]}],
+        "datasets": [{"path": str(destination / "tasks")}],
+    })
+    print(json.dumps({"job": str(destination / "job.json"), "trials": 1,
+                      "experiment_kind": "recorded_episode", "api_mode": args.api_mode}, indent=2))
+
+
 def prepare_smoke(args: argparse.Namespace) -> None:
     """One synthetic live encounter, explicitly separate from the paired experiment."""
     from sdbench.harbor_integration.tasks import build_task
@@ -171,6 +240,8 @@ def summarize(args: argparse.Namespace) -> None:
     manifest = json.loads(args.manifest.read_text())
     if manifest.get("experiment_kind") == "single_model_smoke":
         raise ValueError("This is a single-model smoke run, not a paired experiment; inspect it in harbor view and use its protected per-role usage ledgers")
+    if manifest.get("experiment_kind") == "recorded_episode":
+        raise ValueError("This is a single recorded episode, not a paired experiment; use the completed trial report and per-role usage ledgers")
     records = []
     usage = []
     expected_ids = {trial["trial_id"] for trial in manifest["trials"]}
@@ -250,6 +321,20 @@ def summarize(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    recorded = commands.add_parser("prepare-recorded", help="Prepare a private recorded-only episode; no API calls")
+    recorded.add_argument("--case", type=Path, required=True)
+    for role in ("diagnosis", "gatekeeper", "judge"):
+        recorded.add_argument(f"--{role}-model", required=True)
+    recorded.add_argument("--api-mode", choices=["mock", "live"], default="mock")
+    recorded.add_argument("--provider", choices=["openai", "azure"], default="openai")
+    recorded.add_argument("--base-url")
+    recorded.add_argument("--max-turns", type=int, default=10)
+    recorded.add_argument("--max-model-calls", type=int, default=24)
+    recorded.add_argument("--max-completion-tokens", type=int, default=4096)
+    recorded.add_argument("--reasoning-effort", choices=["low", "medium", "high"])
+    recorded.add_argument("--jobs", type=Path, required=True)
+    recorded.add_argument("--output", type=Path, required=True)
+    recorded.set_defaults(func=prepare_recorded)
     smoke = commands.add_parser("prepare-smoke", help="Prepare one live Azure synthetic encounter for the native Harbor viewer")
     smoke.add_argument("--model", required=True)
     smoke.add_argument("--base-url", required=True)

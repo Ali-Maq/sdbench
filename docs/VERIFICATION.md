@@ -5,6 +5,49 @@ and its costing, routing and resume follow-ups.
 They establish software execution, not clinical validity or equivalence to MAI-DxO.
 **No real patient was evaluated.**
 
+## Recorded-only workflow verification (2026-10-23)
+
+[Issue #12](https://github.com/Ali-Maq/sdbench/issues/12) adds the recorded-only
+episode contract, selector, role projections, pre-judge source checks and protected
+evidence report. The released diagnostic baseline and semantic judge are reused.
+
+| Check | Observed result |
+| --- | --- |
+| Python 3.12, all extras | 249 tests passed, no skips |
+| Python 3.11, compatible extras | 241 passed; eight Harbor-only tests skipped |
+| Boundary/failure tests | Separate role payloads; reference-marker isolation; exact excerpts; absent findings; unknown, duplicate, wrong-kind and malformed selections; source/text/date tampering rejected before judge calls |
+| Baseline compatibility | Existing request limits, mixed-turn rules, HTTP transport and stock runner regressions pass |
+| Final fictional mock Docker run | One completed encounter; four mock calls, zero live calls; stored CBC and `not documented` for absent culture; scripted 3/5 score |
+| Live fictional Azure run | One completed encounter, three investigation rounds, eight provider calls; four recorded responses and 32 `not documented` responses across 36 requests; reference diagnosis reached, judge 5/5 |
+| Live usage | 8,338 input + 1,567 output = 9,905 tokens across all roles; API invoice/estimated dollars unknown |
+| Live model identity | All roles configured as `gpt-5.4`; provider returned `gpt-5.4`, not a dated version identifier |
+| Artifacts/UI | Both ATIF trajectories validate; native Harbor rollout and full-role HTML/source appendix inspected; original ledgers preserved |
+| Packaging | Fresh core-only Python 3.11 wheel install outside checkout; five fictional cases, five CLI helps, recorded preparation and dependency check pass; private/restricted data excluded |
+| Static checks | Selected Ruff checks and whitespace validation pass |
+
+The final mock job is `recorded-reviewed-20261023`, with frozen source hash
+`a3ed7c86924dcc6bcd6897f01ef27f2aea7744053a02e34c7491e4573e412fc3`.
+The live fictional job is `recorded-azure-fictional-20261023`, frozen at
+`7f0d137b3c9e590271a24c3d3bf1bb46038fe57a703d28ab9cd2bafc836b6f3b`.
+The live run preceded final report-only fixes; its preserved evidence was
+validated and exported with the corrected reporter. Clinical role logic did not
+change between those runs. No paid diagnosis was repeated just to regenerate HTML.
+
+Independent review and Claude's read-only public-source review found report
+metadata escaping and provenance-display problems. These were fixed and tested:
+recorded episodes do not infer patient origin from the dataset label, and reports
+show configured versus provider-returned model identities, missing identities and
+multiple identities. No patient records or credentials were included in review.
+
+These checks establish execution and exact membership in a prepared evidence
+catalog. They do not establish clinical validity, faithful original extraction,
+complete retrieval, zero semantic leakage or a representative accuracy estimate.
+The live fixture is authored fiction with four permitted evidence items. A
+selector can miss a relevant item; `not documented` is not proof of absence in
+the underlying chart. Known source conflicts, permitted processing and deployment
+versions must be addressed for each real episode. API and clinical-workup costs
+remain separate, unmeasured monetary quantities here.
+
 ## Follow-up verification
 
 | Check | Observed result |
@@ -110,9 +153,10 @@ checks saved score/flag consistency and nonempty output, not a second clinical
 judgment. Harbor already enforces its stricter declared score format. Stock
 routing/resume changes do not replace Harbor's own provider path or recovery.
 
-Before the first patient run, implement private episode preparation and the
-source-linked recorded-only contract, freeze the expert reference and disclosure
-window, and verify the intended provider route. These are specified in the
+The private episode command and recorded-only contract are now implemented.
+Before the first patient run, verify source extraction, freeze the expert
+reference/disclosure window, and confirm permitted processing and deployment
+versions. These are specified in the
 [study plan](STUDY_PROTOCOL.md#what-remains-before-the-first-patient-run).
 
 Clinical costing inside Harbor, invoice reconciliation, live paired gatekeeper

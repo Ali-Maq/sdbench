@@ -1,0 +1,73 @@
+{
+  "case_id": "fictional-recorded-01",
+  "dataset": "synthetic",
+  "case_summary": "An older adult presents with persistent fatigue.",
+  "full_text": "Entirely fictional development fixture. Expert reference: multiple myeloma. FICTIONAL_REFERENCE_ONLY_MARKER. The reference is retained only in the judge input.",
+  "final_diagnosis": "Multiple myeloma",
+  "recorded_episode": {
+    "schema_version": 1,
+    "mode": "retrospective_request",
+    "opening_source_ids": [
+      "history-note"
+    ],
+    "reference_source_ids": [
+      "expert-review"
+    ],
+    "evidence_cutoff_day": 5,
+    "reference_day": 6,
+    "evidence": [
+      {
+        "id": "cbc",
+        "kind": "test",
+        "label": "CBC",
+        "aliases": [
+          "complete blood count"
+        ],
+        "text": "Hemoglobin 9.2 g/dL; WBC 5.4 x 10^9/L; platelets 215 x 10^9/L.",
+        "source_id": "lab-cbc",
+        "source_sha256": "7803b0e932267f77fa8d5b2ba04789eb7d0079a95b0e1b9df7305126fbecc0c7",
+        "recorded_day": 1,
+        "event_day": 1
+      },
+      {
+        "id": "chemistry",
+        "kind": "test",
+        "label": "Metabolic panel",
+        "aliases": [
+          "calcium and creatinine"
+        ],
+        "text": "Calcium 11.2 mg/dL; creatinine 1.4 mg/dL.",
+        "source_id": "lab-chemistry",
+        "source_sha256": "e27b0807c265e03ad4f87a42ad897f421e016e597a4e96663ff47ba135ca811f",
+        "recorded_day": 2,
+        "event_day": 2
+      },
+      {
+        "id": "history",
+        "kind": "question",
+        "label": "Duration of fatigue",
+        "aliases": [
+          "How long has the fatigue lasted?"
+        ],
+        "text": "Fatigue has lasted six weeks.",
+        "source_id": "history-note",
+        "source_sha256": "4f16f79fd82a86dcd5e0a7d79034709eb8fcfcd3a54711689957e3e594d3f188",
+        "recorded_day": 0,
+        "event_day": 0
+      },
+      {
+        "id": "marrow",
+        "kind": "test",
+        "label": "Bone marrow biopsy",
+        "aliases": [
+          "marrow examination"
+        ],
+        "text": "Bone marrow contains 35% kappa-restricted plasma cells.",
+        "source_id": "pathology",
+        "source_sha256": "21a2701c01a7494f9befa1aa300e4c19103b4f5963d05937fa464da2948a3b00",
+        "recorded_day": 5,
+        "event_day": 5
+      }
+    ]
+  }
+}

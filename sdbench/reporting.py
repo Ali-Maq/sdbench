@@ -431,10 +431,10 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
     }
 
     # Add case set info to title if filtering
-    title_suffix = f" - {case_set}" if case_set else ""
+    title_suffix = f" - {html.escape(case_set)}" if case_set else ""
     
     # Determine dataset name for display
-    dataset_display = config.dataset.upper()
+    dataset_display = html.escape(config.dataset.upper())
     
     html_content : str = f"""
 <!DOCTYPE html>
@@ -852,7 +852,7 @@ def generate_html_overview(results: List[Dict[str, Any]], html_dir: str, config:
         html_content += f"""
                     <tr class="case-row {row_class}">
                         <td class="status-cell">{status_icon}</td>
-                        <td class="case-id">{case_id}</td>"""
+                        <td class="case-id">{html.escape(str(case_id))}</td>"""
 
         # Add ICU cell if ICU metadata is available
         if has_icu_metadata:

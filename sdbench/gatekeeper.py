@@ -498,14 +498,7 @@ class BatchTestRunner:
         if self._debug:
             print(f"[BatchTestRunner] Using batch mode for {len(test_names)} tests")
 
-        batch_results = order_tests(
-            config=self._config,
-            case=self._case,
-            test_names=test_names,
-            previous_tests=self._completed_tests,
-            collector=self._collector,
-            llm=self._llm,
-        )
+        batch_results = self._order_tests(test_names)
 
         # Update completed tests
         for result in batch_results:
@@ -529,6 +522,17 @@ class BatchTestRunner:
             test_names=test_names,
             test_results=batch_results,
             limit_messages=limit_messages,
+        )
+
+    def _order_tests(self, test_names: list[str]) -> list[OrderTestResponse]:
+        """Produce observations while keeping request policy and turn accounting shared."""
+        return order_tests(
+            config=self._config,
+            case=self._case,
+            test_names=test_names,
+            previous_tests=self._completed_tests,
+            collector=self._collector,
+            llm=self._llm,
         )
 
     def _parse_and_limit_requests(self, test_names: list[str]) -> tuple[list[str], list[str]]:

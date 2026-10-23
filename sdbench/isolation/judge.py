@@ -59,6 +59,22 @@ def validate_evidence(
         raise EvidenceError("Case identity does not match the trial configuration")
     if "dataset" in case and case["dataset"] != config.get("dataset"):
         raise EvidenceError("Dataset identity does not match the trial configuration")
+    mode = config.get("gatekeeper_mode", "stock")
+    recorded = "recorded_episode" in case
+    if recorded:
+        from sdbench.isolation.recorded import (
+            SELECTOR_PROMPT_VERSION, gatekeeper_case, validate_recorded_observation,
+        )
+        if mode != "recorded_only" or config.get("gk_prompt") != SELECTOR_PROMPT_VERSION:
+            raise EvidenceError("Recorded episode mode or selector prompt differs from its configuration")
+        try:
+            projected = gatekeeper_case(case)
+        except ValueError as error:
+            raise EvidenceError(str(error)) from None
+        if canonical_hash(projected) != config.get("gatekeeper_case_hash"):
+            raise EvidenceError("Gatekeeper payload does not match the recorded episode")
+    elif mode != "stock":
+        raise EvidenceError("Recorded-only mode requires a recorded episode")
     config_hash = canonical_hash(config)
     if not events:
         raise EvidenceError("No service evidence was recorded")
@@ -141,12 +157,21 @@ def validate_evidence(
             name = result["test_name"]
             if name != requested_name:
                 raise EvidenceError("Test result names must match requests in order, including duplicates")
-            test_logs.append({
+            log = {
                 "test_name": name,
                 "result": result["results"],
                 "is_synthetic": result["is_synthetic"],
-            })
-    return {
+            }
+            if recorded:
+                try:
+                    validate_recorded_observation(case, result)
+                except ValueError as error:
+                    raise EvidenceError(str(error)) from None
+                log.update({key: result[key] for key in (
+                    "evidence_status", "evidence_ids", "source_refs",
+                )})
+            test_logs.append(log)
+    validated = {
         "diagnosis": diagnosis,
         "test_logs": test_logs,
         "turns_left": turns_left,
@@ -155,6 +180,12 @@ def validate_evidence(
         "evidence_hash": canonical_hash(events),
         "config_hash": config_hash,
     }
+    if recorded:
+        validated.update(
+            gatekeeper_mode="recorded_only",
+            recorded_evidence_integrity="validated",
+        )
+    return validated
 
 
 def strict_score(text: str, *, supports_reasoning: bool) -> int:
@@ -232,6 +263,9 @@ def _result_identity(config: dict[str, Any]) -> dict[str, Any]:
         )
     }
     result["diagnostic_agent"] = config.get("diagnostic_agent", "baseline")
+    result["gatekeeper_mode"] = config.get("gatekeeper_mode", "stock")
+    if config.get("gatekeeper_mode") == "recorded_only":
+        result["gatekeeper_case_hash"] = config.get("gatekeeper_case_hash")
     mocked = config.get("api_mode") == "mock"
     result.update(
         status="failed",
@@ -240,7 +274,11 @@ def _result_identity(config: dict[str, Any]) -> dict[str, Any]:
         mocked=mocked,
         diagnostic_accuracy_interpretation=(
             "Mocked plumbing check; not a measurement of diagnostic accuracy"
-            if mocked else "Released SDBench judge assessment of this trial"
+            if mocked else (
+                "Released SDBench judge assessment of a recorded-only retrospective episode"
+                if config.get("gatekeeper_mode") == "recorded_only"
+                else "Released SDBench judge assessment of this trial"
+            )
         ),
     )
     return result

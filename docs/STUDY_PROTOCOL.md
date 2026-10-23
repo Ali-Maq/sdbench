@@ -1,9 +1,10 @@
 # Proposed longitudinal study
 
-**Design only. Patient evaluation is deferred pending the episode and evidence contract below.**
-The existing adapter runs the released SDBench baseline. It does not implement
-custom longitudinal episodes, a recorded-only gatekeeper, one-shot comparisons
-or evaluator ensembles. Original MAI-DxO is unavailable in the [inspected sources](SOURCES.md).
+**Study design; no patient evaluation has been run.** The adapter now supports
+one frozen recorded-only episode through the released SDBench baseline. The
+[implemented contract](RECORDED_EPISODES.md) separates permitted evidence from the
+expert reference. One-shot comparisons and evaluator ensembles remain planned.
+Original MAI-DxO is unavailable in the [inspected sources](SOURCES.md).
 
 ## Study question
 
@@ -20,7 +21,7 @@ repeating the already-known disease name would not answer it. Keep episodes from
 one patient in the same data split and account for their correlation in analysis.
 The current paired analyzer clusters by case, not by longitudinal patient.
 
-## Episode contract to build
+## Episode contract
 
 | Field | Meaning |
 | --- | --- |
@@ -35,12 +36,13 @@ record but do not automatically define the diagnostic answer. Freeze the referen
 wording before scoring; resolve material contradictions rather than requiring
 another blanket review of every record.
 
-Current `CaseData` supplies the same `full_text` to gatekeeper and judge. Separate
-gatekeeper evidence and privileged evaluator context require a new contract.
-The requested variant returns recorded evidence or “not documented”; stock
-SDBench can synthesize missing findings, so preserve that as a named separate
-condition. The new recorded-only policy must exclude the reference answer and
-answer-bearing assessment sections from the gatekeeper's input.
+Stock `CaseData` supplies the same `full_text` to gatekeeper and judge. The new
+`recorded_episode` extension projects a different file for the gatekeeper: only
+the opening and permitted evidence. Its selector returns IDs; application code
+returns the stored excerpts or “not documented.” Stock generated observations
+remain a separate condition. The preparer must exclude answer-bearing assessment
+sections from the evidence catalog; deleting a reference field cannot sanitize
+the clinical text itself.
 
 For the first retrospective mode, a later result can be returned when its test
 is ordered, with its recorded relative timing. This does not claim it existed
@@ -73,8 +75,10 @@ for compatibility and predeclare stricter episode-specific endpoints where neede
 The MIMIC judge also sees requested tests and gatekeeper-reported synthetic flags.
 Those flags are not verified provenance.
 
-Deterministic checks cover schema, calls and protocol limits; source/time checks
-need the new evidence contract. Clinical equivalence needs an explicit rubric.
+Deterministic checks cover schema, calls, protocol limits, permitted event dates
+and exact evidence rendering. They verify the frozen catalog, not the correctness
+of source extraction or the selector's clinical relevance. Clinical equivalence
+needs an explicit rubric.
 Different judges should score frozen outputs, with their disagreements reported;
 an evaluator ensemble does not create ground truth. Re-judging must write separate
 results after validating the original acquisition evidence, not alter its config.
@@ -86,17 +90,17 @@ wall-clock limits before held-out evaluation.
 
 ## What remains before the first patient run
 
-The costing, routing and resume fixes are software corrections. They do not yet
-make the proposed patient experiment executable:
+The recorded-only execution path is implemented and tested with fictional inputs.
+Before a real patient evaluation:
 
 1. Freeze one initial-diagnosis episode: short opening, evidence window, disclosure
    rules and the expert's reference conclusion. Reuse the existing specialist
    records; do not infer the diagnostic target from the treatment alone.
-2. Add private custom-episode preparation to the Harbor adapter. The stock loader
-   accepts custom datasets, but the paired CLI accepts only synthetic/NEJM/MIMIC.
-3. Implement and test recorded-only responses, source references and separation
-   of gatekeeper evidence from the judge's answer. Missing findings must return
-   “not documented.” The released gatekeeper does not enforce this policy.
+2. Verify the selected excerpts against the original records and review the
+   minimized payloads for permitted processing. Record timing gaps and conflicts.
+3. Validate the private case with `prepare-recorded`. Its role projection and
+   verifier enforce the tested evidence contract; they do not certify privacy or
+   clinical completeness. Keep generated tasks and reports private.
 4. Verify the intended deployment is approved for these records, then freeze
    model versions, provider settings and limits. A fictional cloud smoke test
    establishes connectivity, not permission to process patient records.

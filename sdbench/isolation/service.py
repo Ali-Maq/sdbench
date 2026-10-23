@@ -35,13 +35,29 @@ class TrialService:
         self.output_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         if (self.output_dir / "events.jsonl").exists():
             raise ValueError("Refusing to reuse an existing encounter; create a fresh trial directory")
-        if canonical_hash(case) != config["case_hash"] or str(case["case_id"]) != str(config["case_id"]):
+        mode = config.get("gatekeeper_mode", "stock")
+        if mode not in {"stock", "recorded_only"}:
+            raise ValueError("Unsupported gatekeeper mode")
+        runner_type = BatchTestRunner
+        expected_hash = config["case_hash"]
+        if mode == "recorded_only":
+            from sdbench.isolation.recorded import (
+                RecordedTestRunner, SELECTOR_PROMPT_VERSION, validate_gatekeeper_case,
+            )
+            validate_gatekeeper_case(case)
+            if config.get("gk_prompt") != SELECTOR_PROMPT_VERSION:
+                raise ValueError("Recorded selection requires its versioned selector prompt")
+            expected_hash = config.get("gatekeeper_case_hash")
+            runner_type = RecordedTestRunner
+        elif "recorded_episode" in case:
+            raise ValueError("Recorded episodes cannot use the stock generative gatekeeper")
+        if canonical_hash(case) != expected_hash or str(case["case_id"]) != str(config["case_id"]):
             raise ValueError("Case identity/hash does not match trial manifest")
         self.token = config.get("diagnosis_token", "")
         if not isinstance(self.token, str) or len(self.token) < 32:
             raise ValueError("A high-entropy, per-trial diagnosis token is required")
         self.collector: dict[str, Any] = {}
-        self.runner = BatchTestRunner(
+        self.runner = runner_type(
             sdbench_config(config), case, self.collector,
             llm=build_backend(config, "gatekeeper", self.output_dir / "usage.jsonl"),
         )

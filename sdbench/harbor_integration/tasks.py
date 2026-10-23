@@ -22,7 +22,7 @@ from typing import Any, Mapping
 
 import yaml
 
-from sdbench.isolation.common import write_json
+from sdbench.isolation.common import canonical_hash, write_json
 
 HARBOR_VERSION = "0.24.0"
 AGENT_TIMEOUT_SECONDS = 1800
@@ -94,7 +94,9 @@ def _copy_code(destination: Path, *, public: bool) -> None:
             continue
         if source.suffix not in {".py", ".yaml"}:
             continue
-        if public and (source.suffix != ".py" or relative.as_posix() in {"isolation/service.py", "isolation/judge.py"}):
+        if public and (source.suffix != ".py" or relative.as_posix() in {
+            "isolation/service.py", "isolation/judge.py", "isolation/recorded.py",
+        }):
             continue
         target = destination / "sdbench" / relative
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -175,6 +177,24 @@ def build_task(
         raise ValueError("Only the released baseline diagnostic_agent is supported")
     if config["api_mode"] not in {"mock", "live"}:
         raise ValueError("trial_config.api_mode must be 'mock' or 'live'")
+    gatekeeper_data = case_data
+    if "recorded_episode" in case_data:
+        from sdbench.isolation.recorded import SELECTOR_PROMPT_VERSION, gatekeeper_case
+
+        gatekeeper_data = gatekeeper_case(case_data)
+        if config.get("gatekeeper_mode", "recorded_only") != "recorded_only":
+            raise ValueError("Recorded episodes require recorded_only gatekeeper mode")
+        if config.get("gk_prompt") != SELECTOR_PROMPT_VERSION:
+            raise ValueError("Recorded episodes require their versioned selector prompt")
+        if canonical_hash(case_data) != config.get("case_hash"):
+            raise ValueError("Recorded case hash does not match the trial configuration")
+        config["gatekeeper_mode"] = "recorded_only"
+        payload_hash = canonical_hash(gatekeeper_data)
+        if config.get("gatekeeper_case_hash", payload_hash) != payload_hash:
+            raise ValueError("Recorded gatekeeper payload hash does not match")
+        config["gatekeeper_case_hash"] = payload_hash
+    elif config.get("gatekeeper_mode", "stock") != "stock":
+        raise ValueError("recorded_only mode requires a recorded episode")
     _check_no_credentials(config)
     config["diagnosis_token"] = secrets.token_urlsafe(32)
     target = Path(destination).expanduser().resolve()
@@ -197,7 +217,7 @@ def build_task(
         )
         for directory in (gatekeeper, judge):
             write_json(directory / "private" / "trial.json", config)
-            write_json(directory / "private" / "case.json", case_data)
+            write_json(directory / "private" / "case.json", gatekeeper_data if directory == gatekeeper else case_data)
         (gatekeeper / "Dockerfile").write_text(
             _BASE_DOCKERFILE
             + "COPY private /private\n"
@@ -269,6 +289,7 @@ def build_task(
             "judge_network": "none" if config["api_mode"] == "mock" else "provider-egress",
             "authoritative_evidence_service": "gatekeeper",
             "private_task": True,
+            "gatekeeper_mode": config.get("gatekeeper_mode", "stock"),
             "runtime_provenance": {
                 "diagnosis": _runtime_provenance(main),
                 "gatekeeper": _runtime_provenance(gatekeeper),

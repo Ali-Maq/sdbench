@@ -39,6 +39,7 @@ presentation and disclosed observations.
 | Adapt the baseline/TestRunner to HTTP | [diagnosis.py](../sdbench/isolation/diagnosis.py) |
 | Own case access, finalize answers, record events | [service.py](../sdbench/isolation/service.py) |
 | Supply observations using released prompts | [gatekeeper.py](../sdbench/gatekeeper.py) |
+| Select and verify stored evidence for private episodes | [recorded.py](../sdbench/isolation/recorded.py) |
 | Validate evidence and grade | [isolation/judge.py](../sdbench/isolation/judge.py), [judge.py](../sdbench/judge.py) |
 | Provider attempts and cost accounting | [providers.py](../sdbench/isolation/providers.py), [accounting.py](../sdbench/isolation/accounting.py) |
 | Native ATIF and full-role HTML | [trajectory.py](../sdbench/harbor_integration/trajectory.py), [reporting.py](../sdbench/harbor_integration/reporting.py) |
@@ -96,7 +97,7 @@ provider settings and limits are fixed; only `o4-mini` versus `gpt-5` changes.
 | Synthetic fixture | `v6_fixed` | `v3_reasoning` |
 
 The paired CLI accepts only those datasets. It uses direct OpenAI Chat Completions
-in live mode; Azure currently supports only the separate smoke command below.
+in live mode; Azure also supports the separate smoke and recorded-episode commands.
 No live paired comparison has been completed. Real cases require their documented
 access rights and an appropriate provider route.
 
@@ -185,6 +186,12 @@ viewer shows HTML source. The report includes diagnostic, gatekeeper and judge
 conversations, reference and gatekeeper-reported flags. Flags are not verified
 source citations. Raw ledgers remain unchanged; derived per-call copies fit the
 native viewer's 1 MiB limit. This report is evaluator-only, never an agent input.
+
+For [recorded-only episodes](RECORDED_EPISODES.md), the same overview links to
+`evidence.html` and `evidence.json`: opening, allowed catalog, event/source dates,
+private expert reference and the IDs actually selected for each request. The
+verifier checks exact rendering against the frozen catalog. Original-source
+extraction and clinical relevance still require separate review.
 
 Failed encounters cannot produce this completed-report view. Inspect:
 

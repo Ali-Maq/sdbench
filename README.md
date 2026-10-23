@@ -9,7 +9,7 @@ observations; a separate judge scores the final diagnosis against the reference.
 flowchart LR
     S["Brief presentation"] --> D["Diagnostic baseline"]
     D -->|"Questions / tests"| G["Gatekeeper"]
-    C["Private case"] --> G
+    C["Stock case OR permitted recorded evidence"] --> G
     G -->|"Observations"| D
     D -->|"Final diagnosis"| J["Separate judge"]
     R["Case + reference"] --> J
@@ -65,13 +65,16 @@ cost can leave Harbor's Pareto plot empty. Use time, or tokens when usage was re
 | Released baseline through Harbor | Scripted transport parity and mock container checks; see verification |
 | Paired `o4-mini` / `gpt-5` gatekeeper schedule | Direct OpenAI; live comparison not run |
 | Azure Responses and refreshed credentials | Separate single-model fictional smoke route |
-| Native trajectory, clinical report, usage ledger | Recorded model flags are not independently verified source evidence |
+| Native trajectory, clinical report, usage ledger | Stock-mode model flags alone are not verified source evidence |
+| Recorded-only private episodes | Gatekeeper selects IDs; code returns stored excerpts, with source and timing checks before grading |
 | Optional Langfuse export | Post-run metadata; no clinical text or reconstructed execution waterfall |
 
 The planned study uses diagnostic episodes from longitudinal myeloma records.
-**No real patient has been evaluated.** Custom episode preparation, recorded-only
-evidence retrieval, one-shot comparisons and episode-specific evaluators remain
-unimplemented. The current paired CLI accepts only `synthetic`, `nejm` and `mimic`.
+**No real patient has been evaluated.** A separate `prepare-recorded` command
+accepts a frozen private episode with a brief opening, permitted excerpts and
+judge-only reference. See the [recorded-only workflow](docs/RECORDED_EPISODES.md).
+One-shot comparisons and episode-specific evaluators remain unimplemented.
+The paired CLI still accepts only `synthetic`, `nejm` and `mimic`.
 
 The released judge assesses clinical meaning and specificity, not keywords, but
 can count omitted qualifiers as correct at 4/5. A staging or progression endpoint
@@ -84,6 +87,7 @@ clinical costing or reconcile invoices.
 - [Harbor](docs/HARBOR_EXPERIMENT.md): source map, role boundaries, live commands, reports and tracing.
 - [Stock SDBench](RUN_SDBENCH.md): original runner, provider configuration and clinical costing.
 - [Study plan](docs/STUDY_PROTOCOL.md): proposed episodes and comparisons, separate from implemented code.
+- [Recorded episodes](docs/RECORDED_EPISODES.md): source contract, fictional test and private preparation.
 - [Verification](docs/VERIFICATION.md): checks actually run and their limits.
 - [Cleanup tickets](https://github.com/Ali-Maq/sdbench/issues/2): file decisions and completion evidence.
 

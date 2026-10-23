@@ -223,11 +223,24 @@ class MeteredBackend:
             )
 
     def _mock(self, messages: list[dict[str, Any]]) -> ChatCompletion:
+        recorded = self.config.get("gatekeeper_mode") == "recorded_only"
         if self.role == "diagnosis":
             content = (
-                "<test>CBC</test>" if self.calls == 1
+                ("<test>CBC</test><test>Unrecorded culture</test>" if recorded else "<test>CBC</test>") if self.calls == 1
                 else "<diagnosis>Mock diagnosis for transport testing only</diagnosis>"
             )
+        elif self.role == "gatekeeper" and recorded:
+            # Fictional execution check only: exact catalog-label matching, never
+            # a clinical retrieval model or an observation generator.
+            payload = json.loads(next(m["content"] for m in messages if m["role"] == "user"))
+            selections = []
+            for request in payload["requests"]:
+                name = request["request"].split(":", 1)[-1].strip().casefold()
+                ids = [item["id"] for item in payload["catalog"]
+                       if item["kind"] == request["kind"] and name in
+                       [label.strip().casefold() for label in [item["label"], *item["aliases"]]]]
+                selections.append({"request_id": request["request_id"], "evidence_ids": ids})
+            content = json.dumps({"selections": selections})
         elif self.role == "gatekeeper":
             # No reference answer is extracted, even though the private prompt has it.
             user_text = str(next((m["content"] for m in messages if m["role"] == "user"), ""))

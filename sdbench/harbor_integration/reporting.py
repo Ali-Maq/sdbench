@@ -10,13 +10,15 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import hashlib
+import html
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from sdbench.config import HarnessConfig
 from sdbench.isolation.accounting import normalize_usage
-from sdbench.isolation.common import canonical_hash
+from sdbench.isolation.common import canonical_hash, write_json
 from sdbench.reporting import generate_html_overview
 from sdbench.results import is_completed_result
 
@@ -82,6 +84,109 @@ def _split_call(data: bytes) -> list[bytes]:
     return parts
 
 
+def _write_private(path: Path, data: bytes) -> None:
+    """Create an auditor artifact without making its contents world-readable."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as stream:
+        stream.write(data)
+
+
+def _recorded_evidence(
+    case: dict[str, Any], verified: dict[str, Any], events: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Derive an auditor view from the case bound to the completed verifier."""
+    if "recorded_episode" not in case:
+        return None
+    from sdbench.isolation.recorded import validate_recorded_case, validate_recorded_observation
+
+    validate_recorded_case(case)
+    if (verified.get("gatekeeper_mode") != "recorded_only"
+            or verified.get("recorded_evidence_integrity") != "validated"):
+        raise ValueError("Recorded-only report requires validated recorded evidence")
+    observations = []
+    for log in verified.get("test_logs", []):
+        observation = {name: log[name] for name in (
+            "test_name", "is_synthetic", "evidence_status", "evidence_ids", "source_refs"
+        ) if name in log}
+        observation["results"] = log.get("result")
+        validate_recorded_observation(case, observation)
+        observations.append(observation)
+    saved_observations = [result for event in events if event.get("event") == "tests"
+                          for result in event.get("test_results", [])]
+    if observations != saved_observations:
+        raise ValueError("Recorded report observations differ from the hashed service evidence")
+    episode = case["recorded_episode"]
+    return {
+        "kind": "derived-recorded-evidence-report", "authoritative": False,
+        "trial_id": verified["trial_id"], "case_hash": verified["case_hash"],
+        "evidence_hash": verified["evidence_hash"],
+        "gatekeeper_mode": "recorded_only", "recorded_evidence_integrity": "validated",
+        "api_mode": verified["api_mode"], "mocked": verified["mocked"],
+        "opening": {"text": case["case_summary"], "source_ids": episode["opening_source_ids"]},
+        "policy": {"mode": episode["mode"], "evidence_cutoff_day": episode["evidence_cutoff_day"]},
+        "allowed_evidence": episode["evidence"],
+        "reference": {"diagnosis": case["final_diagnosis"], "expert_record": case["full_text"],
+                      "source_ids": episode["reference_source_ids"], "day": episode["reference_day"]},
+        "observations": observations,
+    }
+
+
+def _evidence_html(evidence: dict[str, Any]) -> str:
+    """Render a small escaped source appendix, not a second run dashboard."""
+    def escape(value: Any) -> str:
+        return html.escape(str(value))
+
+    def quoted(value: str) -> str:
+        return f"<pre>{escape(value)}</pre>"
+
+    rows = []
+    for item in evidence["allowed_evidence"]:
+        rows.append(
+            f'<tr><td>{escape(item["id"])}<br>{escape(item["kind"])}</td>'
+            f'<td>{escape(item["label"])}{quoted(item["text"])}</td>'
+            f'<td>{escape(item["source_id"])}<br><code>{escape(item["source_sha256"])}</code></td>'
+            f'<td>{item["event_day"]:+d}</td><td>{item["recorded_day"]:+d}</td></tr>'
+        )
+    responses = []
+    for observation in evidence["observations"]:
+        ids = ", ".join(observation["evidence_ids"]) or "none"
+        responses.append(
+            f'<li><strong>{escape(observation["test_name"])}</strong>'
+            f'<p>Status: {escape(observation["evidence_status"])}; selected evidence IDs: {escape(ids)}.</p>'
+            f'{quoted(observation["results"])}</li>'
+        )
+    opening = evidence["opening"]
+    reference = evidence["reference"]
+    mode = "MOCKED model calls: scores are scripted execution checks, not clinical performance." if evidence["mocked"] else "LIVE model calls: one encounter is not a population accuracy estimate."
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Recorded-only source appendix</title>
+<style>body{{font:16px/1.5 system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem}}
+table{{width:100%;border-collapse:collapse}}th,td{{border:1px solid #bbb;padding:.6rem;text-align:left;vertical-align:top}}
+pre{{white-space:pre-wrap;overflow-wrap:anywhere}}code{{overflow-wrap:anywhere;font-size:.8rem}}</style></head>
+<body><p><a href="overview.html">Saved run report</a> · <a href="evidence.json">Source appendix JSON</a></p>
+<h1>Recorded-only source appendix</h1>
+<p>Private host-only auditor view. The full evidence catalog and judge reference are not the agent's opening.</p>
+<p>{escape(mode)}</p>
+<h2>Opening seen by the diagnostic agent</h2>{quoted(opening["text"])}
+<p>Opening source IDs: {escape(', '.join(opening['source_ids']))}.</p>
+<h2>Allowed evidence</h2>
+<p>Retrospective request-based retrieval through event day {evidence['policy']['evidence_cutoff_day']:+d}.
+Event dates and source-record dates are preserved separately. Neither is a verified result-release timestamp;
+this is not a clock-accurate replay. Missing recorded findings return “not documented”.</p>
+<table><thead><tr><th>Evidence ID / type</th><th>Finding</th><th>Source ID / declared SHA-256</th><th>Event day</th><th>Source-record day</th></tr></thead>
+<tbody>{''.join(rows)}</tbody></table>
+<p>The verifier checks selected evidence IDs, source pointers and exact rendered text against the frozen episode.
+The declared source digests identify the source files used during preparation; this export does not reopen those files,
+verify excerpt selection, or prove that the chosen evidence is clinically relevant to a request.</p>
+<h2>Judge-only expert reference</h2>
+<p><strong>{escape(reference['diagnosis'])}</strong> · reference day {reference['day']:+d}.</p>
+<p>Reference source IDs: {escape(', '.join(reference['source_ids']))}.</p>{quoted(reference['expert_record'])}
+<h2>Actual evidence returned during the run</h2><ol>{''.join(responses)}</ol>
+<p>This appendix is derived from the private case and completed verifier record. Original service events and raw model calls remain authoritative.</p>
+</body></html>"""
+
+
 def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
     """Render one finished encounter, verifying case/evidence identity first.
 
@@ -116,6 +221,7 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
         raise ValueError("Service evidence does not match the verified evidence hash")
     if public.get("diagnosis") != verified.get("diagnosis"):
         raise ValueError("Public diagnosis differs from the verified submission")
+    recorded = _recorded_evidence(case, verified, events)
 
     raw_calls: list[tuple[str, int, bytes, dict[str, Any]]] = []
     for source in ("artifacts/gatekeeper-evidence/raw_calls.jsonl", "verifier/raw_calls.jsonl"):
@@ -128,6 +234,17 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
     counts = Counter(call["role"] for call in calls)
     if not counts["diagnosis"] or not counts["judge"]:
         raise ValueError("Diagnosis and judge call records are required")
+    model_identities = {}
+    for role in ("diagnosis", "gatekeeper", "judge"):
+        reported = [(call.get("response") or {}).get("model") for call in calls if call["role"] == role]
+        known = [model for model in reported if isinstance(model, str) and model.strip()]
+        distinct = sorted(set(known))
+        model_identities[role] = {
+            "configured_model": verified[f"{role}_model"],
+            "provider_returned_models": distinct,
+            "attempts_without_model": len(reported) - len(known),
+            "multiple_provider_models": len(distinct) > 1,
+        }
 
     def token_total(role: str | None = None) -> int | None:
         values = [normalize_usage((call.get("response") or {}).get("usage"))["total_tokens"]
@@ -135,7 +252,11 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
         return sum(values) if values and all(value is not None for value in values) else None
 
     test_logs = [{**log, "messages": [{"role": "assistant", "content": log["result"]}],
-                  "reason": "Requested by the diagnostic agent; saved service observation.",
+                  "reason": (
+                      "Requested by the diagnostic agent; verified evidence IDs: "
+                      + (", ".join(log["evidence_ids"]) or "none (not documented)")
+                      if recorded else "Requested by the diagnostic agent; saved service observation."
+                  ),
                   "timestamp": "Not stored in the per-test verifier record"}
                  for log in verified.get("test_logs", [])]
     mapped = {
@@ -154,21 +275,42 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
         "api_actual_paid_usd": None, "clinical_workup_cost_usd": None,
         "export_metadata": {"authoritative": False, "source": "completed-isolated-trial",
                             "trial_id": verified["trial_id"], "api_attempts_by_role": dict(counts),
+                            "model_identities": model_identities,
                             "all_role_tokens": token_total(), "diagnosis_tokens": token_total("diagnosis")},
     }
     if not is_completed_result(mapped):
         raise ValueError("Completed report requires consistent score flags and saved judge output")
-    synthetic = str(verified["dataset"]).lower() == "synthetic"
+    if recorded:
+        mapped["export_metadata"]["recorded_evidence_integrity"] = "validated"
+        mapped["export_metadata"]["source_appendix"] = "evidence.json"
+    synthetic = not recorded and str(verified["dataset"]).lower() == "synthetic"
     mode = "MOCKED model calls" if verified["mocked"] else "LIVE model calls"
-    label = "SYNTHETIC development/demo case" if synthetic else f"{verified['dataset']} benchmark case"
+    label = (
+        f"Recorded-only retrospective episode; dataset label: {verified['dataset']}; origin is not inferred from that label"
+        if recorded else "SYNTHETIC development/demo case" if synthetic else f"{verified['dataset']} benchmark case"
+    )
     reference_note = (
         "The patient and reference diagnosis belong to an authored fictional case. " if synthetic else ""
     )
+    provenance_note = (
+        "Recorded-only observations were validated against selected evidence IDs, source pointers and exact text in the frozen episode. "
+        "See the source appendix for the opening, allowed evidence, reference and selected IDs; gatekeeper flags alone are not provenance. "
+        if recorded else "Observation flags reproduce gatekeeper metadata; they do not verify that a result appears in the source record. "
+    )
+    mock_note = "Mock scores are scripted execution checks and do not measure diagnostic accuracy. " if verified["mocked"] else ""
+    model_notice = "; ".join(
+        f"{role}=[{', '.join(identity['provider_returned_models']) or 'unknown'}] "
+        f"(attempts without model={identity['attempts_without_model']}; "
+        f"multiple identities={'yes' if identity['multiple_provider_models'] else 'no'})"
+        for role, identity in model_identities.items()
+    )
     notice = (
         f"{label}; {mode}. One saved encounter, not a population accuracy estimate. "
-        f"{reference_note}Observation flags reproduce gatekeeper metadata; they do not verify that a result appears in the source record. "
-        f"Models: diagnosis={verified['diagnosis_model']}, gatekeeper={verified['gatekeeper_model']}, "
-        f"judge={verified['judge_model']}. Recorded API attempts (including failed/incomplete attempts): "
+        f"{reference_note}{mock_note}{provenance_note}"
+        f"Configured models: diagnosis={verified['diagnosis_model']}, gatekeeper={verified['gatekeeper_model']}, "
+        f"judge={verified['judge_model']}. Provider-returned model identities: {model_notice}. "
+        "Missing model identities remain unknown; a configured alias is not a resolved model version. "
+        "Recorded API attempts (including failed/incomplete attempts): "
         f"diagnosis={counts['diagnosis']}, gatekeeper={counts['gatekeeper']}, judge={counts['judge']}. "
         f"Provider-reported tokens: all roles/attempts={token_total() if token_total() is not None else 'unknown'}, "
         f"diagnosis only={token_total('diagnosis') if token_total('diagnosis') is not None else 'unknown'}. "
@@ -190,22 +332,36 @@ def export_trial_report(trial_dir: Path, case_path: Path) -> Path:
         for part_number, data in enumerate(parts, 1):
             suffix = ".json" if len(parts) == 1 else f".part-{part_number:03d}.txt"
             name = f"{ordinal:03d}-{call['role']}" + suffix
-            (audit_dir / name).write_bytes(data)
+            _write_private(audit_dir / name, data)
             names.append({"path": f"audit-calls/{name}", "sha256": _sha256(data), "bytes": len(data)})
         audit_manifest.append({"source": source, "line": line_number, "call_id": call.get("call_id"),
                                "role": call["role"], "status": call.get("status"),
                                "sha256": _sha256(line), "parts": names})
-    (destination / "result.json").write_text(json.dumps(mapped, ensure_ascii=False, indent=2) + "\n")
+    write_json(destination / "result.json", mapped)
     config = HarnessConfig(dataset=verified["dataset"], agent="isolated " + verified.get("diagnostic_agent", "baseline"),
                            model=verified["diagnosis_model"], case_set="saved encounter",
                            azure_storage_enabled=False)
     html_path = Path(generate_html_overview([mapped], str(destination), config, report_notice=notice))
+    html_path.chmod(0o600)
+    appendix_manifest = {}
+    if recorded:
+        write_json(destination / "evidence.json", recorded)
+        _write_private(destination / "evidence.html", _evidence_html(recorded).encode("utf-8"))
+        navigation = ('<p><a href="evidence.html">Recorded-only source appendix: opening, allowed evidence, '
+                      'judge reference and returned findings</a></p>')
+        html_path.write_text(html_path.read_text().replace("<body>", "<body>\n" + navigation, 1))
+        for name in ("evidence.json", "evidence.html"):
+            data = (destination / name).read_bytes()
+            appendix_manifest[name] = {"sha256": _sha256(data), "bytes": len(data)}
     manifest = {"kind": "derived-host-only-clinical-report", "authoritative": False,
                 "sources": source_manifest, "calls": audit_manifest,
                 "html_sha256": _sha256(html_path.read_bytes()),
                 "renderer": "sdbench.reporting.generate_html_overview",
+                "model_identities": model_identities,
                 "clinical_workup_cost_usd": None, "api_actual_paid_usd": None}
-    (destination / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    if appendix_manifest:
+        manifest["source_appendix"] = appendix_manifest
+    write_json(destination / "manifest.json", manifest)
     return html_path
 
 
